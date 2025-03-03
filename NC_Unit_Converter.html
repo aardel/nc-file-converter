@@ -1,9 +1,32 @@
 <!DOCTYPE html>
+<!--
+  NC File Converter v1.0.0
+  
+  A browser-based tool for converting numerical control (NC) files between metric (mm) and imperial (inch) units.
+  Developed by Lasercomb GmbH ( Aaron Delia aardel@gmail.com )
+  
+  Features:
+  - Convert G-code files between millimeters and inches
+  - Auto-detect units in your NC files
+  - Customizable token conversion (X, Y, Z, I, J, etc.)
+  - H-Function mapping for different machine operations
+  - Live preview with syntax highlighting
+  - DXF export capability
+  - Dark mode support
+  - Offline use (runs entirely in browser)
+  
+  Copyright (c) 2025 Lasercomb GmbH
+  This software may be freely distributed in its original, unmodified form.
+  See the LICENSE file for complete terms.
+  
+  GitHub: https://github.com/aardel/nc-file-converter
+-->
+
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NC File Converter V1.0.1</title>
+  <title>NC File Converter</title>
   <style>
     /* Modern Design Variables */
     :root {
@@ -657,7 +680,7 @@
             
             <div class="form-group">
               <label for="inchPrecision">Inch Precision (decimals):</label>
-              <input type="number" id="inchPrecision" min="0" max="6" value="5">
+              <input type="number" id="inchPrecision" min="0" max="6" value="4">
             </div>
           </div>
         </div>
@@ -856,7 +879,7 @@
     /* --- Constants --- */
     const SETTINGS_KEY = "ncConverterSettings";
     const HMAPPING_KEY = "ncHMapping";
-    const DEFAULT_TOKENS = ["X", "Y", "I", "J", "R"];
+    const DEFAULT_TOKENS = ["X", "Y", "I", "J", "R", "Radius:", "CylDia:"];
     const DEFAULT_H_FUNCTIONS = {
       "H1": "1 point",
       "H2": "2 points",
