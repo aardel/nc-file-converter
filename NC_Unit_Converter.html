@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  NC File Converter v1.0.0
+  NC File Converter v1.0.1
   
   A browser-based tool for converting numerical control (NC) files between metric (mm) and imperial (inch) units.
   Developed by Lasercomb GmbH ( Aaron Delia aardel@gmail.com )
@@ -680,7 +680,7 @@
             
             <div class="form-group">
               <label for="inchPrecision">Inch Precision (decimals):</label>
-              <input type="number" id="inchPrecision" min="0" max="6" value="4">
+              <input type="number" id="inchPrecision" min="0" max="6" value="5">
             </div>
           </div>
         </div>
@@ -1765,7 +1765,7 @@
       });
     }
     /* --- Version information --- */
-    const APP_VERSION = "1.0.0"; // Change this when releasing new versions
+    const APP_VERSION = "1.0.1"; // Change this when releasing new versions
     const GITHUB_USER = "aardel";
     const GITHUB_REPO = "nc-file-converter";
     const VERSION_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check once per day (in ms)
