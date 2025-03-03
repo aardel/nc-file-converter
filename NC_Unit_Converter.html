@@ -252,7 +252,7 @@
     .file-area {
       border: 2px dashed var(--primary-color);
       border-radius: var(--border-radius);
-      padding: var(--space-4);
+      padding: var (--space-4);
       text-align: center;
       background-color: rgba(67, 97, 238, 0.05);
       cursor: pointer;
@@ -489,7 +489,7 @@
     .checkbox-option, .radio-option {
       display: flex;
       align-items: center;
-      margin-bottom: var(--space-2);
+      margin-bottom: var (--space-2);
       cursor: pointer;
     }
     
@@ -683,7 +683,7 @@
         </div>
         
         <!-- Token Management Card -->
-        <div class="card" style="margin-bottom: var(--space-4);">
+        <div class="card" style="margin-bottom: var (--space-4);">
           <div class="card-header">
             <h4 style="margin-bottom: 0;">Conversion Tokens</h4>
           </div>
@@ -791,6 +791,19 @@
               <input type="checkbox" id="darkModeToggle">
               <label for="darkModeToggle">Dark Mode</label>
             </div>
+          </div>
+        </div>
+        
+        <!-- Updates Card -->
+        <div class="card" style="margin-bottom: var(--space-4);">
+          <div class="card-header">
+            <h4 style="margin-bottom: 0;">Updates</h4>
+          </div>
+          <div class="card-body">
+            <p>Current Version: <span id="currentVersion"></span></p>
+            <p>Last checked: <span id="lastUpdateCheck">Never</span></p>
+            <button id="checkUpdateBtn" class="btn">Check for Updates</button>
+            <div id="updateStatus" style="margin-top: var(--space-2);"></div>
           </div>
         </div>
         
@@ -1729,8 +1742,8 @@
     }
     /* --- Version information --- */
     const APP_VERSION = "1.0.0"; // Change this when releasing new versions
-    const GITHUB_USER = "YourGitHubUsername"; // Replace with your GitHub username
-    const GITHUB_REPO = "nc-file-converter"; // Replace with your repo name
+    const GITHUB_USER = "aardel";
+    const GITHUB_REPO = "nc-file-converter";
     const VERSION_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check once per day (in ms)
     
     /* --- Conversion Functions --- */
@@ -2597,44 +2610,61 @@ EOF
     }
     
     /* --- Version Check System --- */
-    function checkForUpdates() {
-      // Don't check too frequently - use localStorage to remember last check
+    function checkForUpdates(manual = false) {
+      // Don't check too frequently unless it's a manual check
       const lastCheck = localStorage.getItem('lastUpdateCheck');
       const now = Date.now();
       
-      if (lastCheck && (now - parseInt(lastCheck)) < VERSION_CHECK_INTERVAL) {
-        console.log("Skipping update check - checked recently");
-        return;
+      if (!manual && lastCheck && (now - parseInt(lastCheck)) < VERSION_CHECK_INTERVAL) {
+          console.log("Skipping update check - checked recently");
+          return Promise.resolve();
       }
       
       // Record this check time
       localStorage.setItem('lastUpdateCheck', now.toString());
       
-      // Fetch the version info from GitHub
-      fetch(`https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/version.json?nocache=${now}`)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Failed to fetch version info: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          if (data && data.version) {
-            const latestVersion = data.version;
-            
-            // Compare versions (simple string comparison works if using semantic versioning)
-            if (compareVersions(latestVersion, APP_VERSION) > 0) {
-              // Show update notification
-              showUpdateNotification(latestVersion, data.releaseNotes || "Bug fixes and improvements");
-            } else {
-              console.log(`App is up to date (${APP_VERSION})`);
-            }
-          }
-        })
-        .catch(error => {
-          console.error("Error checking for updates:", error);
-        });
-    }
+      // Update the last check display
+      const lastCheckElem = document.getElementById('lastUpdateCheck');
+      if (lastCheckElem) {
+          lastCheckElem.textContent = new Date().toLocaleString();
+      }
+      
+      const updateStatus = document.getElementById('updateStatus');
+      
+      return fetch(`https://raw.githubusercontent.com/${GITHUB_USER}/${GITHUB_REPO}/main/version.json?nocache=${now}`)
+          .then(response => {
+              if (!response.ok) {
+                  throw new Error(`Failed to fetch version info: ${response.status}`);
+              }
+              return response.json();
+          })
+          .then(data => {
+              if (data && data.version) {
+                  const latestVersion = data.version;
+                  
+                  if (compareVersions(latestVersion, APP_VERSION) > 0) {
+                      // Show update notification
+                      showUpdateNotification(latestVersion, data.releaseNotes || "Bug fixes and improvements");
+                      if (updateStatus) {
+                          updateStatus.innerHTML = `<span style="color: var(--warning-color);">New version ${latestVersion} available!</span>`;
+                      }
+                  } else if (manual) {
+                      if (updateStatus) {
+                          updateStatus.innerHTML = `<span style="color: var(--success-color);">You have the latest version!</span>`;
+                      }
+                  }
+              }
+          })
+          .catch(error => {
+              console.error("Error checking for updates:", error);
+              if (updateStatus) {
+                  updateStatus.innerHTML = `<span style="color: var(--danger-color);">Error checking for updates: ${error.message}</span>`;
+              }
+              if (manual) {
+                  throw error; // Re-throw for manual checks
+              }
+          });
+  }
     
     // Simple semantic version comparison (returns 1 if v1 > v2, -1 if v1 < v2, 0 if equal)
     function compareVersions(v1, v2) {
@@ -2694,7 +2724,7 @@ EOF
         
         .update-card {
           background-color: var(--gray-100);
-          border-radius: var(--border-radius);
+          border-radius: var (--border-radius);
           box-shadow: var(--shadow-lg);
           width: 90%;
           max-width: 500px;
@@ -2744,7 +2774,7 @@ EOF
         .update-button {
           background-color: var(--primary-color);
           color: white;
-          padding: var(--space-2) var(--space-3);
+          padding: var (--space-2) var(--space-3);
           border: none;
           border-radius: var(--border-radius-sm);
           cursor: pointer;
@@ -2761,7 +2791,7 @@ EOF
         
         .update-remind {
           background-color: var(--gray-400);
-          color: var(--gray-800);
+          color: var (--gray-800);
           padding: var(--space-2) var(--space-3);
           border: none;
           border-radius: var(--border-radius-sm);
@@ -2816,6 +2846,39 @@ EOF
       
       // Check for updates
       checkForUpdates();
+      
+      // Initialize update checker
+      const currentVersionElem = document.getElementById('currentVersion');
+      if (currentVersionElem) {
+          currentVersionElem.textContent = APP_VERSION;
+      }
+      
+      const checkUpdateBtn = document.getElementById('checkUpdateBtn');
+      if (checkUpdateBtn) {
+          checkUpdateBtn.addEventListener('click', () => {
+              checkUpdateBtn.disabled = true;
+              checkUpdateBtn.textContent = 'Checking...';
+              
+              checkForUpdates(true) // true = manual check
+                  .finally(() => {
+                      checkUpdateBtn.disabled = false;
+                      checkUpdateBtn.textContent = 'Check for Updates';
+                      
+                      // Update last check time
+                      const lastCheckElem = document.getElementById('lastUpdateCheck');
+                      if (lastCheckElem) {
+                          lastCheckElem.textContent = new Date().toLocaleString();
+                      }
+                  });
+          });
+      }
+      
+      // Update last check time display initially
+      const lastCheckElem = document.getElementById('lastUpdateCheck');
+      const lastCheck = localStorage.getItem('lastUpdateCheck');
+      if (lastCheckElem && lastCheck) {
+          lastCheckElem.textContent = new Date(parseInt(lastCheck)).toLocaleString();
+      }
     });
   </script>
 </body>
