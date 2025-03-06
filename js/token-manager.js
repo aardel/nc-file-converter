@@ -5,25 +5,58 @@
 
 NCConverter.TokenManager = {
   /**
+   * DOM element cache
+   */
+  elements: {},
+  
+  /**
+   * Token cache for quick lookups
+   */
+  tokenCache: null,
+  
+  /**
+   * Initialized state
+   */
+  initialized: false,
+  
+  /**
    * Initialize the token manager module
    */
   init: function() {
-    // DOM references
-    this.tokenList = document.getElementById("tokenList");
-    this.customToken = document.getElementById("customToken");
-    this.addTokenBtn = document.getElementById("addTokenBtn");
-    this.resetTokensBtn = document.getElementById("resetTokensBtn");
-    this.tokenItemTemplate = document.getElementById("tokenItemTemplate");
+    console.log("TokenManager initializing");
+    
+    // Cache DOM references
+    this.elements = {
+      tokenList: document.getElementById("tokenList"),
+      customToken: document.getElementById("customToken"),
+      addTokenBtn: document.getElementById("addTokenBtn"),
+      resetTokensBtn: document.getElementById("resetTokensBtn"),
+      tokenItemTemplate: document.getElementById("tokenItemTemplate"),
+      quickTokenBtns: document.querySelectorAll('.quick-token-btn')
+    };
     
     // Initialize the token list
     this.initializeTokenList();
     
     // Set up event listeners
-    if (this.addTokenBtn && this.customToken) {
-      this.addTokenBtn.addEventListener("click", this.addCustomToken.bind(this));
+    this.setupEventListeners();
+    
+    this.initialized = true;
+    console.log("TokenManager initialized");
+  },
+  
+  /**
+   * Set up event listeners for token manager
+   */
+  setupEventListeners: function() {
+    const { addTokenBtn, customToken, resetTokensBtn, quickTokenBtns } = this.elements;
+    
+    // Add token button
+    if (addTokenBtn && customToken) {
+      addTokenBtn.addEventListener("click", this.addCustomToken.bind(this));
       
       // Allow pressing Enter to add token
-      this.customToken.addEventListener("keydown", (e) => {
+      customToken.addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
           e.preventDefault();
           this.addCustomToken();
@@ -32,56 +65,99 @@ NCConverter.TokenManager = {
     }
     
     // Token reset button
-    if (this.resetTokensBtn) {
-      this.resetTokensBtn.addEventListener("click", this.resetTokens.bind(this));
+    if (resetTokensBtn) {
+      resetTokensBtn.addEventListener("click", this.resetTokens.bind(this));
     }
     
-    // Quick token buttons
-    document.querySelectorAll('.quick-token-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const token = btn.getAttribute('data-token');
-        if (!token) return;
+    // Quick token buttons - use event delegation for better performance
+    if (this.elements.tokenList && this.elements.tokenList.parentNode) {
+      const container = this.elements.tokenList.parentNode.parentNode;
+      
+      container.addEventListener('click', (e) => {
+        const target = e.target;
         
-        // Skip if already in the list
-        if (NCConverter.state.settings.tokens.includes(token)) {
-          NCConverter.UIHelpers.showToast(`Token "${token}" already exists`, "warning");
-          return;
+        // Check if it's a quick token button
+        if (target.classList.contains('quick-token-btn')) {
+          const token = target.getAttribute('data-token');
+          if (!token) return;
+          
+          this.addQuickToken(token, target);
         }
         
-        // Add the token
-        NCConverter.state.settings.tokens.push(token);
-        NCConverter.Settings.saveSettings(NCConverter.state.settings);
-        this.addTokenToList(token);
-        
-        // Update conversion if available
-        if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
-          NCConverter.Conversion.updateConversion();
+        // Check if it's a remove token button
+        if (target.classList.contains('remove-token')) {
+          const tokenItem = target.closest('.token-item');
+          if (tokenItem) {
+            const tokenName = tokenItem.querySelector('.token-name');
+            if (tokenName) {
+              this.removeToken(tokenName.textContent);
+            }
+          }
         }
-        
-        NCConverter.UIHelpers.showToast(`Token "${token}" added`, "success");
       });
-    });
+    }
   },
   
   /**
    * Initialize the token list from settings
    */
   initializeTokenList: function() {
-    if (!this.tokenList) return;
+    const { tokenList } = this.elements;
+    if (!tokenList) return;
     
     // Clear the token list
-    this.tokenList.innerHTML = "";
+    tokenList.innerHTML = "";
     
     // Make sure tokens array exists in settings
+    if (!NCConverter.state || !NCConverter.state.settings) {
+      console.warn("Settings not initialized");
+      return;
+    }
+    
     if (!Array.isArray(NCConverter.state.settings.tokens) || NCConverter.state.settings.tokens.length === 0) {
       NCConverter.state.settings.tokens = [...NCConverter.DEFAULT_TOKENS];
     }
     
+    // Reset token cache
+    this.tokenCache = new Set(NCConverter.state.settings.tokens);
+    
+    // Use a document fragment for better performance when adding many tokens
+    const fragment = document.createDocumentFragment();
+    
     // Add each token to the list
-    NCConverter.state.settings.tokens.forEach(token => this.addTokenToList(token));
+    NCConverter.state.settings.tokens.forEach(token => {
+      const tokenItem = this.createTokenElement(token);
+      if (tokenItem) {
+        fragment.appendChild(tokenItem);
+      }
+    });
+    
+    // Add all tokens at once to the DOM
+    tokenList.appendChild(fragment);
     
     // Update quick token buttons status
     this.updateQuickTokenButtons();
+  },
+  
+  /**
+   * Create a token element from the template
+   * @param {string} token - Token to add
+   * @return {Node} Created token element
+   */
+  createTokenElement: function(token) {
+    const { tokenItemTemplate } = this.elements;
+    if (!tokenItemTemplate) return null;
+    
+    // Clone the template
+    const tokenItem = document.importNode(tokenItemTemplate.content, true);
+    
+    // Set token name
+    const tokenName = tokenItem.querySelector(".token-name");
+    if (tokenName) {
+      tokenName.textContent = token;
+    }
+    
+    return tokenItem;
   },
   
   /**
@@ -89,24 +165,99 @@ NCConverter.TokenManager = {
    * @param {string} token - Token to add to the list
    */
   addTokenToList: function(token) {
-    if (!this.tokenList || !token || !this.tokenItemTemplate) return;
+    const { tokenList } = this.elements;
+    if (!tokenList || !token) return;
     
-    // Clone the template
-    const tokenItem = document.importNode(this.tokenItemTemplate.content, true);
-    
-    // Set token name
-    const tokenName = tokenItem.querySelector(".token-name");
-    tokenName.textContent = token;
-    
-    // Set up remove button
-    const removeBtn = tokenItem.querySelector(".remove-token");
-    removeBtn.addEventListener("click", () => this.removeToken(token));
+    // Create token element
+    const tokenItem = this.createTokenElement(token);
+    if (!tokenItem) return;
     
     // Add to the list
-    this.tokenList.appendChild(tokenItem);
+    tokenList.appendChild(tokenItem);
     
     // Update quick token buttons state
     this.updateQuickTokenButtons();
+  },
+  
+  /**
+   * Add a "quick token" when clicking a quick token button
+   * @param {string} token - Token to add
+   * @param {Element} btn - Button element clicked
+   */
+  addQuickToken: function(token, btn) {
+    // Skip if already in the list
+    if (this.tokenCache.has(token)) {
+      this.showToast(`Token "${token}" already exists`, "warning");
+      return;
+    }
+    
+    // Add the token
+    NCConverter.state.settings.tokens.push(token);
+    NCConverter.Settings.saveSettings(NCConverter.state.settings);
+    
+    // Update cache
+    this.tokenCache.add(token);
+    
+    // Add to UI
+    this.addTokenToList(token);
+    
+    // Update conversion if available
+    if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
+      NCConverter.Conversion.updateConversion();
+    }
+    
+    this.showToast(`Token "${token}" added`, "success");
+    
+    // Disable the button
+    if (btn) {
+      btn.classList.add('disabled');
+      btn.disabled = true;
+      btn.style.opacity = "0.5";
+      btn.style.cursor = "not-allowed";
+    }
+  },
+  
+  /**
+   * Add a custom token from the input field
+   */
+  addCustomToken: function() {
+    const { customToken } = this.elements;
+    if (!customToken) return;
+    
+    const token = customToken.value.trim();
+    if (!token) {
+      this.showToast("Please enter a token", "error");
+      return;
+    }
+    
+    // Check if token already exists
+    if (this.tokenCache.has(token)) {
+      this.showToast(`Token "${token}" already exists`, "warning");
+      return;
+    }
+    
+    // Add token
+    NCConverter.state.settings.tokens.push(token);
+    NCConverter.Settings.saveSettings(NCConverter.state.settings);
+    
+    // Update cache
+    this.tokenCache.add(token);
+    
+    // Add to UI
+    this.addTokenToList(token);
+    
+    // Clear input
+    customToken.value = "";
+    
+    // Update conversion if available
+    if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
+      NCConverter.Conversion.updateConversion();
+    }
+    
+    this.showToast(`Token "${token}" added`, "success");
+    
+    // Focus back on input for easy addition of multiple tokens
+    customToken.focus();
   },
   
   /**
@@ -114,19 +265,28 @@ NCConverter.TokenManager = {
    * @param {string} token - Token to remove
    */
   removeToken: function(token) {
-    if (!this.tokenList) return;
+    const { tokenList } = this.elements;
+    if (!tokenList || !token) return;
     
-    // Remove from DOM
-    const tokenItems = this.tokenList.querySelectorAll('.token-item');
+    // Remove from the DOM efficiently
+    const tokenItems = tokenList.querySelectorAll('.token-item');
+    let found = false;
+    
     tokenItems.forEach(item => {
       const tokenName = item.querySelector('.token-name');
       if (tokenName && tokenName.textContent === token) {
         item.remove();
+        found = true;
       }
     });
     
+    if (!found) return;
+    
     // Remove from settings
     NCConverter.state.settings.tokens = NCConverter.state.settings.tokens.filter(t => t !== token);
+    
+    // Remove from cache
+    this.tokenCache.delete(token);
     
     // Save and update
     NCConverter.Settings.saveSettings(NCConverter.state.settings);
@@ -137,53 +297,20 @@ NCConverter.TokenManager = {
       NCConverter.Conversion.updateConversion();
     }
     
-    NCConverter.UIHelpers.showToast(`Token "${token}" removed`, "success");
-  },
-  
-  /**
-   * Add a custom token from the input field
-   */
-  addCustomToken: function() {
-    if (!this.customToken) return;
-    
-    const token = this.customToken.value.trim();
-    if (!token) {
-      NCConverter.UIHelpers.showToast("Please enter a token", "error");
-      return;
-    }
-    
-    // Check if token already exists
-    if (NCConverter.state.settings.tokens.includes(token)) {
-      NCConverter.UIHelpers.showToast(`Token "${token}" already exists`, "warning");
-      return;
-    }
-    
-    // Add token
-    NCConverter.state.settings.tokens.push(token);
-    NCConverter.Settings.saveSettings(NCConverter.state.settings);
-    this.addTokenToList(token);
-    
-    // Clear input
-    this.customToken.value = "";
-    
-    // Update conversion if available
-    if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
-      NCConverter.Conversion.updateConversion();
-    }
-    
-    NCConverter.UIHelpers.showToast(`Token "${token}" added`, "success");
-    
-    // Focus back on input for easy addition of multiple tokens
-    this.customToken.focus();
+    this.showToast(`Token "${token}" removed`, "success");
   },
   
   /**
    * Update quick token buttons state (disable those already in use)
    */
   updateQuickTokenButtons: function() {
-    document.querySelectorAll('.quick-token-btn').forEach(btn => {
+    const { quickTokenBtns } = this.elements;
+    if (!quickTokenBtns) return;
+    
+    quickTokenBtns.forEach(btn => {
       const token = btn.getAttribute('data-token');
-      if (NCConverter.state.settings.tokens.includes(token)) {
+      
+      if (this.tokenCache.has(token)) {
         btn.classList.add('disabled');
         btn.disabled = true;
         btn.style.opacity = "0.5";
@@ -203,6 +330,10 @@ NCConverter.TokenManager = {
    */
   getTokens: function() { 
     // Always return a valid array of tokens
+    if (this.tokenCache) {
+      return Array.from(this.tokenCache);
+    }
+    
     return Array.isArray(NCConverter.state.settings.tokens) && NCConverter.state.settings.tokens.length > 0 
       ? NCConverter.state.settings.tokens 
       : [...NCConverter.DEFAULT_TOKENS]; 
@@ -212,8 +343,18 @@ NCConverter.TokenManager = {
    * Reset tokens to default values
    */
   resetTokens: function() {
+    if (!NCConverter.state || !NCConverter.state.settings) {
+      console.warn("Settings not initialized");
+      return;
+    }
+    
     NCConverter.state.settings.tokens = [...NCConverter.DEFAULT_TOKENS];
     NCConverter.Settings.saveSettings(NCConverter.state.settings);
+    
+    // Reset token cache
+    this.tokenCache = new Set(NCConverter.state.settings.tokens);
+    
+    // Refresh the list
     this.initializeTokenList();
     
     // Update conversion if available
@@ -221,6 +362,19 @@ NCConverter.TokenManager = {
       NCConverter.Conversion.updateConversion();
     }
     
-    NCConverter.UIHelpers.showToast("Tokens reset to defaults", "success");
+    this.showToast("Tokens reset to defaults", "success");
+  },
+  
+  /**
+   * Show a toast notification using UIHelpers
+   * @param {string} message - Message to display
+   * @param {string} type - Notification type
+   */
+  showToast: function(message, type) {
+    if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.showToast === "function") {
+      NCConverter.UIHelpers.showToast(message, type);
+    } else {
+      console.log(message);
+    }
   }
-}
+};

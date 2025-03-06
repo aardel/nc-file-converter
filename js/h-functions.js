@@ -5,29 +5,48 @@
 
 NCConverter.HFunctions = {
   /**
+   * DOM element cache
+   */
+  elements: {},
+  
+  /**
+   * Initialization flag
+   */
+  initialized: false,
+  
+  /**
    * Initialize the H functions module
    */
   init: function() {
+    console.log("HFunctions initializing");
+    
     // Initialize state
+    if (!NCConverter.state) {
+      console.error("State not initialized");
+      return;
+    }
+    
     NCConverter.state.hMapping = this.loadHMapping();
     
-    // DOM references
-    this.detectHBtn = document.getElementById("detectHBtn");
-    this.hMappingContainer = document.getElementById("hMappingContainer");
-    this.resetHMappingBtn = document.getElementById("resetHMappingBtn");
-    this.hMappingItemTemplate = document.getElementById("hMappingItemTemplate");
-    
-    this.hFunctionsList = document.getElementById("hFunctionsList");
-    this.newHNumber = document.getElementById("newHNumber");
-    this.newHName = document.getElementById("newHName");
-    this.addHFunctionBtn = document.getElementById("addHFunctionBtn");
-    this.editHFunctionSection = document.getElementById("editHFunctionSection");
-    this.editHNumber = document.getElementById("editHNumber");
-    this.editHName = document.getElementById("editHName");
-    this.saveHFunctionBtn = document.getElementById("saveHFunctionBtn");
-    this.cancelEditHFunctionBtn = document.getElementById("cancelEditHFunctionBtn");
-    this.resetHFunctionsBtn = document.getElementById("resetHFunctionsBtn");
-    this.hFunctionDefItemTemplate = document.getElementById("hFunctionDefItemTemplate");
+    // Cache DOM references
+    this.elements = {
+      detectHBtn: document.getElementById("detectHBtn"),
+      hMappingContainer: document.getElementById("hMappingContainer"),
+      resetHMappingBtn: document.getElementById("resetHMappingBtn"),
+      hMappingItemTemplate: document.getElementById("hMappingItemTemplate"),
+      hFunctionsList: document.getElementById("hFunctionsList"),
+      newHNumber: document.getElementById("newHNumber"),
+      newHName: document.getElementById("newHName"),
+      addHFunctionBtn: document.getElementById("addHFunctionBtn"),
+      editHFunctionSection: document.getElementById("editHFunctionSection"),
+      editHNumber: document.getElementById("editHNumber"),
+      editHName: document.getElementById("editHName"),
+      saveHFunctionBtn: document.getElementById("saveHFunctionBtn"),
+      cancelEditHFunctionBtn: document.getElementById("cancelEditHFunctionBtn"),
+      resetHFunctionsBtn: document.getElementById("resetHFunctionsBtn"),
+      hFunctionDefItemTemplate: document.getElementById("hFunctionDefItemTemplate"),
+      autoRedetectContainer: document.getElementById("autoRedetectContainer")
+    };
     
     // Initialize H functions list
     this.initializeHFunctionsList();
@@ -35,24 +54,38 @@ NCConverter.HFunctions = {
     // Update H mapping UI
     this.updateHMappingUI();
     
-    // Add the auto-redetect option
-    this.addAutoRedetectOption();
+    // Add the auto-redetect option - only if it doesn't exist
+    if (!this.elements.autoRedetectContainer) {
+      this.addAutoRedetectOption();
+    }
     
     // Set up event listeners
+    this.setupEventListeners();
+    
+    this.initialized = true;
+    console.log("HFunctions initialized");
+  },
+  
+  /**
+   * Set up event listeners for H functions
+   */
+  setupEventListeners: function() {
+    const { detectHBtn, resetHMappingBtn, addHFunctionBtn, saveHFunctionBtn, 
+           cancelEditHFunctionBtn, resetHFunctionsBtn, newHName } = this.elements;
     
     // H number detection button
-    if (this.detectHBtn) {
-      this.detectHBtn.addEventListener("click", () => {
+    if (detectHBtn) {
+      detectHBtn.addEventListener("click", () => {
         // Always detect from converted file if available
         this.updateHMappingFromFile(NCConverter.state.convertedContent ? true : false);
         this.updateHMappingUI();
-        NCConverter.UIHelpers.showToast("H numbers detected and mappings updated", "success");
+        this.showToast("H numbers detected and mappings updated", "success");
       });
     }
     
     // Reset H mappings button
-    if (this.resetHMappingBtn) {
-      this.resetHMappingBtn.addEventListener("click", () => {
+    if (resetHMappingBtn) {
+      resetHMappingBtn.addEventListener("click", () => {
         if (confirm("Are you sure you want to reset all H function mappings?")) {
           NCConverter.state.hMapping = [];
           this.saveHMapping(NCConverter.state.hMapping);
@@ -63,18 +96,18 @@ NCConverter.HFunctions = {
             NCConverter.Conversion.updateConversion();
           }
           
-          NCConverter.UIHelpers.showToast("H mappings have been reset", "success");
+          this.showToast("H mappings have been reset", "success");
         }
       });
     }
     
     // H function definition management
-    if (this.addHFunctionBtn) {
-      this.addHFunctionBtn.addEventListener("click", this.addNewHFunction.bind(this));
+    if (addHFunctionBtn) {
+      addHFunctionBtn.addEventListener("click", this.addNewHFunction.bind(this));
       
       // Allow pressing Enter to add H function
-      if (this.newHName) {
-        this.newHName.addEventListener("keydown", (e) => {
+      if (newHName) {
+        newHName.addEventListener("keydown", (e) => {
           if (e.key === "Enter") {
             e.preventDefault();
             this.addNewHFunction();
@@ -83,19 +116,17 @@ NCConverter.HFunctions = {
       }
     }
     
-    if (this.saveHFunctionBtn) {
-      this.saveHFunctionBtn.addEventListener("click", this.saveHFunctionEdit.bind(this));
+    if (saveHFunctionBtn) {
+      saveHFunctionBtn.addEventListener("click", this.saveHFunctionEdit.bind(this));
     }
     
-    if (this.cancelEditHFunctionBtn) {
-      this.cancelEditHFunctionBtn.addEventListener("click", this.exitHFunctionEditMode.bind(this));
+    if (cancelEditHFunctionBtn) {
+      cancelEditHFunctionBtn.addEventListener("click", this.exitHFunctionEditMode.bind(this));
     }
     
-    if (this.resetHFunctionsBtn) {
-      this.resetHFunctionsBtn.addEventListener("click", this.resetHFunctions.bind(this));
+    if (resetHFunctionsBtn) {
+      resetHFunctionsBtn.addEventListener("click", this.resetHFunctions.bind(this));
     }
-    
-    // Note: Tab navigation is now handled in main.js
   },
   
   /**
@@ -125,7 +156,7 @@ NCConverter.HFunctions = {
       localStorage.setItem(NCConverter.HMAPPING_KEY, JSON.stringify(mapping));
     } catch (e) {
       console.error("Error saving H mappings:", e);
-      NCConverter.UIHelpers.showToast("Failed to save H mappings", "error");
+      this.showToast("Failed to save H mappings", "error");
     }
   },
   
@@ -133,10 +164,16 @@ NCConverter.HFunctions = {
    * Initialize the H functions list from settings
    */
   initializeHFunctionsList: function() {
-    if (!this.hFunctionsList) return;
+    const { hFunctionsList } = this.elements;
+    if (!hFunctionsList) return;
     
     // Clear the list
-    this.hFunctionsList.innerHTML = "";
+    hFunctionsList.innerHTML = "";
+    
+    if (!NCConverter.state || !NCConverter.state.settings) {
+      console.warn("Settings not initialized");
+      return;
+    }
     
     // Make sure H functions object exists in settings
     if (!NCConverter.state.settings.hFunctions || typeof NCConverter.state.settings.hFunctions !== 'object') {
@@ -152,56 +189,72 @@ NCConverter.HFunctions = {
         return numA - numB;
       });
     
+    // Use a document fragment for better performance
+    const fragment = document.createDocumentFragment();
+    
     // Add each H function to the list
     hFunctionEntries.forEach(([key, value]) => {
-      this.addHFunctionToList(key, value);
+      const hFunctionItem = this.createHFunctionElement(key, value);
+      if (hFunctionItem) {
+        fragment.appendChild(hFunctionItem);
+      }
     });
+    
+    // Add all items at once
+    hFunctionsList.appendChild(fragment);
     
     // Reset edit section
     this.exitHFunctionEditMode();
   },
   
   /**
-   * Add an H function to the UI list
+   * Create an H function element from the template
    * @param {string} hKey - H function key (e.g., "H1")
    * @param {string} hName - H function name/description
+   * @return {Node} Created H function element
    */
-  addHFunctionToList: function(hKey, hName) {
-    if (!this.hFunctionsList || !this.hFunctionDefItemTemplate) return;
+  createHFunctionElement: function(hKey, hName) {
+    const { hFunctionDefItemTemplate } = this.elements;
+    if (!hFunctionDefItemTemplate) return null;
     
     // Clone the template
-    const hFunctionItem = document.importNode(this.hFunctionDefItemTemplate.content, true);
+    const hFunctionItem = document.importNode(hFunctionDefItemTemplate.content, true);
     
     // Set H number and name
     const hNumberElem = hFunctionItem.querySelector(".h-number");
     const hNameElem = hFunctionItem.querySelector(".h-name");
-    hNumberElem.textContent = hKey;
-    hNameElem.textContent = hName;
+    
+    if (hNumberElem) hNumberElem.textContent = hKey;
+    if (hNameElem) hNameElem.textContent = hName;
     
     // Set up edit button
     const editBtn = hFunctionItem.querySelector(".edit-h-function");
-    editBtn.addEventListener("click", () => this.enterHFunctionEditMode(hKey, hName));
+    if (editBtn) {
+      editBtn.addEventListener("click", () => this.enterHFunctionEditMode(hKey, hName));
+    }
     
     // Set up remove button
     const removeBtn = hFunctionItem.querySelector(".remove-h-function");
-    removeBtn.addEventListener("click", () => this.removeHFunction(hKey));
+    if (removeBtn) {
+      removeBtn.addEventListener("click", () => this.removeHFunction(hKey));
+    }
     
-    // Add to the list
-    this.hFunctionsList.appendChild(hFunctionItem);
+    return hFunctionItem;
   },
   
   /**
    * Add a new H function definition
    */
   addNewHFunction: function() {
-    if (!this.newHNumber || !this.newHName) return;
+    const { newHNumber, newHName } = this.elements;
+    if (!newHNumber || !newHName) return;
     
-    const hNum = this.newHNumber.value.trim();
-    const hName = this.newHName.value.trim();
+    const hNum = newHNumber.value.trim();
+    const hName = newHName.value.trim();
     
     // Validate inputs
     if (!hNum || !hName) {
-      NCConverter.UIHelpers.showToast("Please enter both H number and name", "error");
+      this.showToast("Please enter both H number and name", "error");
       return;
     }
     
@@ -210,7 +263,7 @@ NCConverter.HFunctions = {
     
     // Check if H function already exists
     if (NCConverter.state.settings.hFunctions[hKey]) {
-      NCConverter.UIHelpers.showToast(`H${hNum} already exists. Use edit function instead.`, "warning");
+      this.showToast(`H${hNum} already exists. Use edit function instead.`, "warning");
       return;
     }
     
@@ -219,18 +272,21 @@ NCConverter.HFunctions = {
     NCConverter.Settings.saveSettings(NCConverter.state.settings);
     
     // Add to list
-    this.addHFunctionToList(hKey, hName);
+    const hFunctionItem = this.createHFunctionElement(hKey, hName);
+    if (hFunctionItem && this.elements.hFunctionsList) {
+      this.elements.hFunctionsList.appendChild(hFunctionItem);
+    }
     
     // Clear inputs
-    this.newHNumber.value = "";
-    this.newHName.value = "";
+    newHNumber.value = "";
+    newHName.value = "";
     
     // Update UI
     this.refreshHFunctionData();
-    NCConverter.UIHelpers.showToast(`H${hNum} added successfully`, "success");
+    this.showToast(`H${hNum} added successfully`, "success");
     
     // Focus for easy addition of multiple entries
-    this.newHNumber.focus();
+    newHNumber.focus();
   },
   
   /**
@@ -239,33 +295,34 @@ NCConverter.HFunctions = {
    * @param {string} hName - H function name/description
    */
   enterHFunctionEditMode: function(hKey, hName) {
-    if (!this.editHFunctionSection || !this.editHNumber || !this.editHName) return;
+    const { editHFunctionSection, editHNumber, editHName } = this.elements;
+    if (!editHFunctionSection || !editHNumber || !editHName) return;
     
     // Set the form values
-    this.editHNumber.value = hKey.replace('H', '');
-    this.editHName.value = hName;
+    editHNumber.value = hKey.replace('H', '');
+    editHName.value = hName;
     
     // Show edit section
-    this.editHFunctionSection.style.display = "block";
+    editHFunctionSection.style.display = "block";
     
     // Track the H function being edited
     NCConverter.state.currentlyEditingH = hKey;
     
     // Scroll to edit section
-    this.editHFunctionSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    editHFunctionSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   },
   
   /**
    * Save edited H function
    */
   saveHFunctionEdit: function() {
-    if (!NCConverter.state.currentlyEditingH || !this.editHName) return;
+    if (!NCConverter.state.currentlyEditingH || !this.elements.editHName) return;
     
-    const hName = this.editHName.value.trim();
+    const hName = this.elements.editHName.value.trim();
     
     // Validate input
     if (!hName) {
-      NCConverter.UIHelpers.showToast("Please enter a name for the H function", "error");
+      this.showToast("Please enter a name for the H function", "error");
       return;
     }
     
@@ -280,24 +337,25 @@ NCConverter.HFunctions = {
     this.initializeHFunctionsList();
     this.refreshHFunctionData();
     
-    NCConverter.UIHelpers.showToast(`${NCConverter.state.currentlyEditingH} updated successfully`, "success");
+    this.showToast(`${NCConverter.state.currentlyEditingH} updated successfully`, "success");
   },
   
   /**
    * Exit H function edit mode
    */
   exitHFunctionEditMode: function() {
-    if (!this.editHFunctionSection) return;
+    const { editHFunctionSection, editHNumber, editHName } = this.elements;
+    if (!editHFunctionSection) return;
     
     // Hide edit section
-    this.editHFunctionSection.style.display = "none";
+    editHFunctionSection.style.display = "none";
     
     // Clear tracking
     NCConverter.state.currentlyEditingH = null;
     
     // Clear form values
-    if (this.editHNumber) this.editHNumber.value = "";
-    if (this.editHName) this.editHName.value = "";
+    if (editHNumber) editHNumber.value = "";
+    if (editHName) editHName.value = "";
   },
   
   /**
@@ -323,7 +381,7 @@ NCConverter.HFunctions = {
     this.initializeHFunctionsList();
     this.refreshHFunctionData();
     
-    NCConverter.UIHelpers.showToast(`${hKey} removed successfully`, "success");
+    this.showToast(`${hKey} removed successfully`, "success");
   },
   
   /**
@@ -346,7 +404,7 @@ NCConverter.HFunctions = {
     this.initializeHFunctionsList();
     this.refreshHFunctionData();
     
-    NCConverter.UIHelpers.showToast("H functions reset to defaults", "success");
+    this.showToast("H functions reset to defaults", "success");
   },
   
   /**
@@ -415,10 +473,11 @@ NCConverter.HFunctions = {
    * Update the H mapping UI with current mappings
    */
   updateHMappingUI: function() {
-    if (!this.hMappingContainer || !this.hMappingItemTemplate) return;
+    const { hMappingContainer, hMappingItemTemplate } = this.elements;
+    if (!hMappingContainer || !hMappingItemTemplate) return;
     
     // Clear the container
-    this.hMappingContainer.innerHTML = "";
+    hMappingContainer.innerHTML = "";
     
     // Add empty state message if no H numbers found
     if (!NCConverter.state.hMapping || NCConverter.state.hMapping.length === 0) {
@@ -429,16 +488,19 @@ NCConverter.HFunctions = {
       emptyMessage.style.textAlign = "center";
       emptyMessage.style.padding = "var(--space-3)";
       emptyMessage.textContent = "No H numbers detected. Click 'Detect H Numbers' to scan your file or upload a file containing H numbers.";
-      this.hMappingContainer.appendChild(emptyMessage);
+      hMappingContainer.appendChild(emptyMessage);
       return;
     }
+    
+    // Use a document fragment for better performance
+    const fragment = document.createDocumentFragment();
     
     // Create rows for each H number mapping
     NCConverter.state.hMapping.forEach((map, index) => {
       if (!map || !map.from) return;
       
       // Clone the template
-      const row = document.importNode(this.hMappingItemTemplate.content, true);
+      const row = document.importNode(hMappingItemTemplate.content, true);
       
       // Original H function with friendly name
       const origValue = map.from;
@@ -446,63 +508,72 @@ NCConverter.HFunctions = {
       
       // Set original H function text
       const origDisplay = row.querySelector(".h-original");
-      origDisplay.textContent = origValue + " (" + friendly + ")";
+      if (origDisplay) {
+        origDisplay.textContent = origValue + " (" + friendly + ")";
+      }
       
       // Set up mapping select
       const newSelect = row.querySelector(".h-mapping");
-      newSelect.innerHTML = this.getHFunctionOptionsHTML();
-      newSelect.value = map.to || origValue;
-      newSelect.addEventListener("change", () => {
-        // Store the original value to check if it changed
-        const oldTo = map.to;
-        
-        // Update the mapping
-        map.to = newSelect.value;
-        this.saveHMapping(NCConverter.state.hMapping);
-        
-        // Only run full conversion if mapping actually changed
-        if (oldTo !== map.to) {
-          if (NCConverter.state.convertedContent) {
-            // Apply mappings directly to convertedContent
-            if (NCConverter.Conversion && typeof NCConverter.Conversion.applyHMapping === "function") {
-              NCConverter.state.convertedContent = NCConverter.Conversion.applyHMapping(NCConverter.state.convertedContent);
-            }
-            
-            // Force preview update
-            if (NCConverter.Preview && typeof NCConverter.Preview.updatePreview === "function") {
-              NCConverter.Preview.updatePreview();
-            }
-            
-            // Update export button state
-            if (NCConverter.Export && typeof NCConverter.Export.updateExportButton === "function") {
-              NCConverter.Export.updateExportButton();
-            }
-            
-            NCConverter.UIHelpers.showToast(`${map.from} mapped to ${map.to}`, "success");
-          } else {
-            // If no converted content yet, run full conversion
-            if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
-              NCConverter.Conversion.updateConversion(true); // true = redetect H
+      if (newSelect) {
+        newSelect.innerHTML = this.getHFunctionOptionsHTML();
+        newSelect.value = map.to || origValue;
+        newSelect.addEventListener("change", () => {
+          // Store the original value to check if it changed
+          const oldTo = map.to;
+          
+          // Update the mapping
+          map.to = newSelect.value;
+          this.saveHMapping(NCConverter.state.hMapping);
+          
+          // Only run full conversion if mapping actually changed
+          if (oldTo !== map.to) {
+            if (NCConverter.state.convertedContent) {
+              // Apply mappings directly to convertedContent
+              if (NCConverter.Conversion && typeof NCConverter.Conversion.applyHMapping === "function") {
+                NCConverter.state.convertedContent = NCConverter.Conversion.applyHMapping(NCConverter.state.convertedContent);
+              }
+              
+              // Force preview update
+              if (NCConverter.Preview && typeof NCConverter.Preview.updatePreview === "function") {
+                NCConverter.Preview.updatePreview();
+              }
+              
+              // Update export button state
+              if (NCConverter.Export && typeof NCConverter.Export.updateExportButton === "function") {
+                NCConverter.Export.updateExportButton();
+              }
+              
+              this.showToast(`${map.from} mapped to ${map.to}`, "success");
+            } else {
+              // If no converted content yet, run full conversion
+              if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
+                NCConverter.Conversion.updateConversion(true); // true = redetect H
+              }
             }
           }
-        }
-      });
+        });
+      }
       
       // Set up remove button
       const removeBtn = row.querySelector(".remove-mapping");
-      removeBtn.addEventListener("click", () => {
-        NCConverter.state.hMapping.splice(index, 1);
-        this.saveHMapping(NCConverter.state.hMapping);
-        
-        // Force conversion update
-        if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
-          NCConverter.Conversion.updateConversion(true); // true = redetect H
-        }
-      });
+      if (removeBtn) {
+        removeBtn.addEventListener("click", () => {
+          NCConverter.state.hMapping.splice(index, 1);
+          this.saveHMapping(NCConverter.state.hMapping);
+          
+          // Force conversion update
+          if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
+            NCConverter.Conversion.updateConversion(true); // true = redetect H
+          }
+        });
+      }
       
-      // Add to container
-      this.hMappingContainer.appendChild(row);
+      // Add to fragment
+      fragment.appendChild(row);
     });
+    
+    // Add all rows at once
+    hMappingContainer.appendChild(fragment);
   },
   
   /**
@@ -602,9 +673,17 @@ NCConverter.HFunctions = {
     const hfunctionsTab = document.getElementById("hfunctions-tab");
     if (!hfunctionsTab) return;
     
+    // Check if auto-redetect container already exists
+    const existingContainer = document.getElementById("autoRedetectContainer");
+    if (existingContainer) {
+      // Remove existing container to avoid duplicates
+      existingContainer.parentNode.removeChild(existingContainer);
+    }
+    
     // Create a settings option for auto re-detection
     const settingDiv = document.createElement("div");
     settingDiv.className = "checkbox-option";
+    settingDiv.id = "autoRedetectContainer";
     settingDiv.style.marginTop = "var(--space-4)";
     
     const checkbox = document.createElement("input");
@@ -621,16 +700,41 @@ NCConverter.HFunctions = {
     
     // Insert before the reset button
     const resetBtn = document.getElementById("resetHMappingBtn");
-    if (resetBtn) {
+    if (resetBtn && resetBtn.parentNode) {
       resetBtn.parentNode.insertBefore(settingDiv, resetBtn);
     } else {
       hfunctionsTab.appendChild(settingDiv);
     }
     
+    // Cache the element
+    this.elements.autoRedetectContainer = settingDiv;
+    this.elements.autoRedetectH = checkbox;
+    
     // Add event listener to save setting
     checkbox.addEventListener("change", () => {
+      if (!NCConverter.state || !NCConverter.state.settings) return;
+      
       NCConverter.state.settings.autoRedetectH = checkbox.checked;
-      NCConverter.Settings.saveSettings(NCConverter.state.settings);
+      
+      if (NCConverter.Settings && typeof NCConverter.Settings.saveSettings === "function") {
+        NCConverter.Settings.saveSettings(NCConverter.state.settings);
+      }
     });
+  },
+  
+  /**
+   * Show a toast notification
+   * @param {string} message - Message to display
+   * @param {string} type - Type of notification
+   */
+  showToast: function(message, type) {
+    if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.showToast === "function") {
+      NCConverter.UIHelpers.showToast(message, type);
+    } else {
+      console.log(message);
+      if (type === 'error') {
+        alert(message);
+      }
+    }
   }
 };

@@ -5,35 +5,85 @@
 
 NCConverter.Settings = {
   /**
+   * DOM element cache 
+   */
+  elements: {},
+  
+  /**
+   * Initialization state
+   */
+  initialized: false,
+  
+  /**
    * Initialize the settings module
    */
   init: function() {
+    console.log("Settings initializing");
+    
+    // Load settings from storage
     NCConverter.state.settings = this.loadSettings();
     
+    // Cache DOM elements
+    this.cacheElements();
+    
     // Set up event listeners
-    const resetSettingsBtn = document.getElementById("resetSettingsBtn");
+    this.setupEventListeners();
+    
+    // Apply settings to UI
+    this.applySettings();
+    
+    this.initialized = true;
+    console.log("Settings initialized");
+  },
+  
+  /**
+   * Cache DOM elements for better performance
+   */
+  cacheElements: function() {
+    this.elements = {
+      resetSettingsBtn: document.getElementById("resetSettingsBtn"),
+      mmPrecision: document.getElementById("mmPrecision"),
+      inchPrecision: document.getElementById("inchPrecision"),
+      preserveNewlines: document.getElementById("preserveNewlines"),
+      normalizeSpacing: document.getElementById("normalizeSpacing"),
+      conversionTypes: document.querySelectorAll('input[name="conversionType"]')
+    };
+  },
+  
+  /**
+   * Set up event listeners for settings
+   */
+  setupEventListeners: function() {
+    const { resetSettingsBtn, mmPrecision, inchPrecision, 
+           preserveNewlines, normalizeSpacing, conversionTypes } = this.elements;
+    
+    // Reset button
     if (resetSettingsBtn) {
       resetSettingsBtn.addEventListener("click", this.resetSettings.bind(this));
     }
     
     // Setting change listeners
-    document.getElementById("mmPrecision").addEventListener("change", this.handleSettingChange.bind(this));
-    document.getElementById("inchPrecision").addEventListener("change", this.handleSettingChange.bind(this));
-    document.getElementById("preserveNewlines").addEventListener("change", this.handleSettingChange.bind(this));
-    document.getElementById("normalizeSpacing").addEventListener("change", this.handleSettingChange.bind(this));
+    if (mmPrecision) {
+      mmPrecision.addEventListener("change", this.handleSettingChange.bind(this));
+    }
     
-    document.querySelectorAll('input[name="conversionType"]').forEach(el =>
-      el.addEventListener("change", this.handleSettingChange.bind(this))
-    );
+    if (inchPrecision) {
+      inchPrecision.addEventListener("change", this.handleSettingChange.bind(this));
+    }
     
-    // Dark mode toggle
-    const darkModeToggle = document.getElementById("darkModeToggle");
-    if (darkModeToggle) {
-      darkModeToggle.addEventListener("change", () => {
-        const isDark = darkModeToggle.checked;
-        NCConverter.UIHelpers.setDarkMode(isDark);
-        this.handleSettingChange();
-      });
+    if (preserveNewlines) {
+      preserveNewlines.addEventListener("change", this.handleSettingChange.bind(this));
+    }
+    
+    if (normalizeSpacing) {
+      normalizeSpacing.addEventListener("change", this.handleSettingChange.bind(this));
+    }
+    
+    // Radio button listeners
+    if (conversionTypes) {
+      conversionTypes.forEach(el =>
+        el.addEventListener("change", this.handleSettingChange.bind(this))
+      );
     }
   },
   
@@ -81,7 +131,7 @@ NCConverter.Settings = {
       localStorage.setItem(NCConverter.SETTINGS_KEY, JSON.stringify(settings));
     } catch (e) {
       console.error("Error saving settings:", e);
-      NCConverter.UIHelpers.showToast("Failed to save settings", "error");
+      this.showToast("Failed to save settings", "error");
     }
   },
   
@@ -90,16 +140,32 @@ NCConverter.Settings = {
    */
   updateStoredSettings: function() {
     const settings = NCConverter.state.settings;
+    const { mmPrecision, inchPrecision, preserveNewlines, 
+           normalizeSpacing } = this.elements;
     
     // Conversion settings
-    settings.conversionType = document.querySelector('input[name="conversionType"]:checked').value;
-    settings.mmPrecision = document.getElementById("mmPrecision").value;
-    settings.inchPrecision = document.getElementById("inchPrecision").value;
+    const conversionTypeElement = document.querySelector('input[name="conversionType"]:checked');
+    if (conversionTypeElement) {
+      settings.conversionType = conversionTypeElement.value;
+    }
+    
+    // Precision settings
+    if (mmPrecision) {
+      settings.mmPrecision = mmPrecision.value;
+    }
+    
+    if (inchPrecision) {
+      settings.inchPrecision = inchPrecision.value;
+    }
     
     // Formatting settings
-    settings.preserveNewlines = document.getElementById("preserveNewlines").checked;
-    settings.normalizeSpacing = document.getElementById("normalizeSpacing").checked;
-    settings.darkMode = document.getElementById("darkModeToggle").checked;
+    if (preserveNewlines) {
+      settings.preserveNewlines = preserveNewlines.checked;
+    }
+    
+    if (normalizeSpacing) {
+      settings.normalizeSpacing = normalizeSpacing.checked;
+    }
     
     // Auto-redetect setting
     const autoRedetectCheckbox = document.getElementById("autoRedetectH");
@@ -115,6 +181,7 @@ NCConverter.Settings = {
     }
     
     // Note: H Functions are already updated in the add/edit/delete functions
+    // Note: Dark Mode is now handled by the global toggle
     
     this.saveSettings(settings);
   },
@@ -123,10 +190,23 @@ NCConverter.Settings = {
    * Reset settings to default values
    */
   resetSettings: function() {
+    // Preserve dark mode setting when resetting other settings
+    const darkModeSetting = NCConverter.state.settings.darkMode;
+    
+    // Get default settings
     NCConverter.state.settings = this.getDefaultSettings();
+    
+    // Restore dark mode setting
+    NCConverter.state.settings.darkMode = darkModeSetting;
+    
+    // Save settings
     this.saveSettings(NCConverter.state.settings);
+    
+    // Apply settings to UI
     this.applySettings();
-    NCConverter.UIHelpers.showToast("Settings have been reset to default", "success");
+    
+    // Show notification
+    this.showToast("Settings have been reset to default", "success");
     
     // Make sure to update the conversion with new settings
     if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
@@ -139,6 +219,8 @@ NCConverter.Settings = {
    */
   applySettings: function() {
     const settings = NCConverter.state.settings;
+    const { mmPrecision, inchPrecision, preserveNewlines, 
+           normalizeSpacing } = this.elements;
     
     // Apply conversion type
     if (settings.conversionType) {
@@ -147,21 +229,28 @@ NCConverter.Settings = {
     }
     
     // Apply precision settings
-    if (settings.mmPrecision) document.getElementById("mmPrecision").value = settings.mmPrecision;
-    if (settings.inchPrecision) document.getElementById("inchPrecision").value = settings.inchPrecision;
+    if (settings.mmPrecision && mmPrecision) {
+      mmPrecision.value = settings.mmPrecision;
+    }
+    
+    if (settings.inchPrecision && inchPrecision) {
+      inchPrecision.value = settings.inchPrecision;
+    }
     
     // Apply formatting settings
-    if (typeof settings.preserveNewlines === "boolean") {
-      document.getElementById("preserveNewlines").checked = settings.preserveNewlines;
-    }
-    if (typeof settings.normalizeSpacing === "boolean") {
-      document.getElementById("normalizeSpacing").checked = settings.normalizeSpacing;
+    if (typeof settings.preserveNewlines === "boolean" && preserveNewlines) {
+      preserveNewlines.checked = settings.preserveNewlines;
     }
     
-    // Apply appearance settings
+    if (typeof settings.normalizeSpacing === "boolean" && normalizeSpacing) {
+      normalizeSpacing.checked = settings.normalizeSpacing;
+    }
+    
+    // Apply dark mode setting through the UIHelpers
     if (typeof settings.darkMode === "boolean") {
-      document.getElementById("darkModeToggle").checked = settings.darkMode;
-      NCConverter.UIHelpers.setDarkMode(settings.darkMode);
+      if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.setDarkMode === "function") {
+        NCConverter.UIHelpers.setDarkMode(settings.darkMode);
+      }
     }
     
     // Apply token settings
@@ -181,8 +270,8 @@ NCConverter.Settings = {
     
     // Set auto-redetect checkbox if it exists
     const autoRedetectCheckbox = document.getElementById("autoRedetectH");
-    if (autoRedetectCheckbox) {
-      autoRedetectCheckbox.checked = settings.autoRedetectH !== false;
+    if (autoRedetectCheckbox && typeof settings.autoRedetectH === "boolean") {
+      autoRedetectCheckbox.checked = settings.autoRedetectH;
     }
   },
   
@@ -195,6 +284,19 @@ NCConverter.Settings = {
     // Trigger conversion update if available
     if (NCConverter.Conversion && typeof NCConverter.Conversion.updateConversion === "function") {
       NCConverter.Conversion.updateConversion();
+    }
+  },
+  
+  /**
+   * Show a toast notification
+   * @param {string} message - Message to display
+   * @param {string} type - Type of notification
+   */
+  showToast: function(message, type) {
+    if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.showToast === "function") {
+      NCConverter.UIHelpers.showToast(message, type);
+    } else {
+      console.log(message);
     }
   }
 };

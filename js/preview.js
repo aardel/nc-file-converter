@@ -5,25 +5,123 @@
 
 NCConverter.Preview = {
   /**
+   * DOM element cache
+   */
+  elements: {},
+  
+  /**
+   * Cached RegExp patterns
+   */
+  patterns: {},
+  
+  /**
+   * Initialization flag
+   */
+  initialized: false,
+  
+  /**
    * Initialize the preview module
    */
   init: function() {
-    // DOM references
-    this.originalPreview = document.getElementById("originalPreview");
-    this.convertedPreview = document.getElementById("convertedPreview");
+    // Cache DOM references for better performance
+    this.elements = {
+      originalPreview: document.getElementById("originalPreview"),
+      convertedPreview: document.getElementById("convertedPreview")
+    };
+    
+    // Initialize patterns cache
+    this.initializePatternCache();
+    
+    this.initialized = true;
+    console.log("Preview module initialized");
+  },
+  
+  /**
+   * Initialize RegExp pattern cache for better performance
+   */
+  initializePatternCache: function() {
+    // Pre-compile some common patterns
+    this.patterns = {
+      hFunction: null, // Will be created dynamically based on mappings
+      spaceNormalize: /\s+/g
+    };
+  },
+  
+  /**
+   * Get a pattern for H functions
+   * @param {Array} mappings - Array of H function mappings
+   * @return {RegExp|null} Compiled pattern or null if no mappings
+   */
+  getHFunctionPattern: function(mappings) {
+    if (!mappings || !Array.isArray(mappings) || mappings.length === 0) {
+      return null;
+    }
+    
+    // Create a key for the pattern based on mappings
+    const mappingKey = mappings.map(m => m.from + m.to).join('|');
+    
+    // Create and cache the pattern if it doesn't exist
+    if (!this.patterns['hFunction_' + mappingKey]) {
+      // Get only mappings where from != to (changed mappings)
+      const changedMappings = mappings.filter(m => m && m.from && m.to && m.from !== m.to);
+      
+      if (changedMappings.length === 0) {
+        return null;
+      }
+      
+      const patternStr = changedMappings.map(mapping => {
+        return '\\b' + this.escapeRegExp(mapping.from) + '\\b';
+      }).join('|');
+      
+      this.patterns['hFunction_' + mappingKey] = new RegExp(patternStr, 'g');
+    }
+    
+    return this.patterns['hFunction_' + mappingKey];
+  },
+  
+  /**
+   * Get a pattern for highlighting tokens
+   * @param {Array} tokens - Array of tokens to highlight
+   * @return {RegExp|null} Compiled pattern or null if no tokens
+   */
+  getTokenPattern: function(tokens) {
+    if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
+      return null;
+    }
+    
+    // Create a key for the pattern based on tokens
+    const tokenKey = tokens.join('|');
+    
+    // Create and cache the pattern if it doesn't exist
+    if (!this.patterns['token_' + tokenKey]) {
+      const patternStr = "(" + tokens.map(t => this.escapeRegExp(t)).join("|") +
+        ")(\\s*)(-?\\d+(?:\\.\\d+)?)";
+      
+      this.patterns['token_' + tokenKey] = new RegExp(patternStr, 'gi');
+    }
+    
+    return this.patterns['token_' + tokenKey];
   },
   
   /**
    * Update the preview panels with original and converted content
    */
   updatePreview: function() {
-    if (!this.originalPreview || !this.convertedPreview) return;
+    const { originalPreview, convertedPreview } = this.elements;
     
-    if (!NCConverter.state.fileContent) {
-      this.originalPreview.innerHTML = "No file loaded.";
-      this.convertedPreview.innerHTML = "No conversion available.";
+    if (!originalPreview || !convertedPreview) {
+      console.warn("Preview elements not found");
       return;
     }
+    
+    if (!NCConverter.state || !NCConverter.state.fileContent) {
+      originalPreview.innerHTML = "No file loaded.";
+      convertedPreview.innerHTML = "No conversion available.";
+      return;
+    }
+    
+    // Start timing for performance measurement
+    const startTime = performance.now();
     
     try {
       // Get tokens for highlighting
@@ -34,73 +132,200 @@ NCConverter.Preview = {
         tokens = NCConverter.state.settings.tokens;
       }
       
+      // Only create document fragments if the file is not too large
+      const useDocumentFragments = NCConverter.state.fileContent.length < 500000;
+      
       // ---- ORIGINAL CODE PREVIEW ----
-      let originalText = NCConverter.UIHelpers.escapeHtml(NCConverter.state.fileContent);
-      
-      // First highlight H functions that will be changed (in red)
-      if (NCConverter.state.hMapping && NCConverter.state.hMapping.length > 0) {
-        // Get mappings where from != to (i.e., H functions that will be changed)
-        const changedMappings = NCConverter.state.hMapping.filter(m => m && m.from && m.to && m.from !== m.to);
+      // Use worker for very large files (over 1MB)
+      if (NCConverter.state.fileContent.length > 1000000) {
+        // For extremely large files, just show without highlighting
+        originalPreview.textContent = NCConverter.state.fileContent;
+        originalPreview.classList.add('large-file');
         
-        // For each mapping, highlight all occurrences in the original text
-        changedMappings.forEach(mapping => {
-          // Create a pattern to match the exact H number with word boundaries
-          const pattern = new RegExp("\\b" + NCConverter.UIHelpers.escapeRegExp(mapping.from) + "\\b", "g");
-          
-          // Replace with highlighted version
-          originalText = originalText.replace(pattern, '<span class="highlight-h-function">$&</span>');
-        });
+        // Add a notice
+        const notice = document.createElement('div');
+        notice.className = 'large-file-notice';
+        notice.textContent = 'Large file: syntax highlighting disabled for performance reasons';
+        originalPreview.parentNode.insertBefore(notice, originalPreview);
+      } else {
+        // Normal highlighting for reasonable file sizes
+        this.highlightOriginalContent(tokens, useDocumentFragments);
       }
-      
-      // Then highlight tokens (in blue)
-      if (tokens.length > 0) {
-        const tokenPattern = new RegExp("(" + tokens.map(t => NCConverter.UIHelpers.escapeRegExp(t)).join("|") +
-          ")(\\s*)(-?\\d+(?:\\.\\d+)?)", "gi");
-        originalText = originalText.replace(tokenPattern, '<span class="highlight-token">$&</span>');
-      }
-      
-      // Update original preview
-      this.originalPreview.innerHTML = originalText;
       
       // ---- CONVERTED CODE PREVIEW ----
-      if (NCConverter.state.convertedContent) {
-        let convertedText = NCConverter.UIHelpers.escapeHtml(NCConverter.state.convertedContent);
+      if (!NCConverter.state.convertedContent) {
+        convertedPreview.innerHTML = "Not converted yet.";
+      } else if (NCConverter.state.convertedContent.length > 1000000) {
+        // For extremely large files, just show without highlighting
+        convertedPreview.textContent = NCConverter.state.convertedContent;
+        convertedPreview.classList.add('large-file');
         
-        // First highlight mapped H functions in converted text
-        if (NCConverter.state.hMapping && NCConverter.state.hMapping.length > 0) {
-          // Get mappings where from != to (i.e., H functions that were changed)
-          const changedMappings = NCConverter.state.hMapping.filter(m => m && m.from && m.to && m.from !== m.to);
-          
-          // For each mapping, highlight all occurrences of the destination H function
-          changedMappings.forEach(mapping => {
-            // Create a pattern to match the exact replacement H number
-            const pattern = new RegExp("\\b" + NCConverter.UIHelpers.escapeRegExp(mapping.to) + "\\b", "g");
-            
-            // Replace with highlighted version
-            convertedText = convertedText.replace(pattern, '<span class="highlight-h-function">$&</span>');
-          });
+        // Add a notice if not already added
+        if (!convertedPreview.parentNode.querySelector('.large-file-notice')) {
+          const notice = document.createElement('div');
+          notice.className = 'large-file-notice';
+          notice.textContent = 'Large file: syntax highlighting disabled for performance reasons';
+          convertedPreview.parentNode.insertBefore(notice, convertedPreview);
         }
-        
-        // Then highlight converted tokens (in blue)
-        if (tokens.length > 0) {
-          const tokenPattern = new RegExp("(" + tokens.map(t => NCConverter.UIHelpers.escapeRegExp(t)).join("|") +
-            ")(\\s*)(-?\\d+(?:\\.\\d+)?)", "gi");
-          convertedText = convertedText.replace(tokenPattern, '<span class="highlight-token">$&</span>');
-        }
-        
-        // Update converted preview
-        this.convertedPreview.innerHTML = convertedText;
       } else {
-        this.convertedPreview.innerHTML = "Not converted yet.";
+        // Normal highlighting for reasonable file sizes
+        this.highlightConvertedContent(tokens, useDocumentFragments);
       }
+      
+      // Log performance
+      const endTime = performance.now();
+      console.log(`Preview updated in ${(endTime - startTime).toFixed(2)}ms`);
+      
     } catch (error) {
       console.error("Error updating preview:", error);
       
       // Fallback to simple text display if highlighting fails
-      this.originalPreview.innerHTML = NCConverter.UIHelpers.escapeHtml(NCConverter.state.fileContent);
-      this.convertedPreview.innerHTML = NCConverter.state.convertedContent ? 
-                                       NCConverter.UIHelpers.escapeHtml(NCConverter.state.convertedContent) : 
-                                       "Not converted yet.";
+      originalPreview.textContent = NCConverter.state.fileContent;
+      
+      if (NCConverter.state.convertedContent) {
+        convertedPreview.textContent = NCConverter.state.convertedContent;
+      } else {
+        convertedPreview.textContent = "Not converted yet.";
+      }
     }
+  },
+  
+  /**
+   * Highlight original content with optimized performance
+   * @param {Array} tokens - Tokens to highlight
+   * @param {boolean} useDocumentFragments - Whether to use document fragments
+   */
+  highlightOriginalContent: function(tokens, useDocumentFragments) {
+    const { originalPreview } = this.elements;
+    
+    // Escape HTML in original content
+    let originalText = this.escapeHtml(NCConverter.state.fileContent);
+    
+    // First highlight H functions that will be changed (in red)
+    const hPattern = this.getHFunctionPattern(NCConverter.state.hMapping);
+    if (hPattern) {
+      originalText = originalText.replace(hPattern, match => {
+        return '<span class="highlight-h-function">' + match + '</span>';
+      });
+    }
+    
+    // Then highlight tokens (in blue)
+    const tokenPattern = this.getTokenPattern(tokens);
+    if (tokenPattern) {
+      originalText = originalText.replace(tokenPattern, match => {
+        return '<span class="highlight-token">' + match + '</span>';
+      });
+    }
+    
+    // Update original preview
+    if (useDocumentFragments) {
+      // Use document fragment for better performance
+      const fragment = document.createDocumentFragment();
+      const div = document.createElement('div');
+      div.innerHTML = originalText;
+      
+      while (div.firstChild) {
+        fragment.appendChild(div.firstChild);
+      }
+      
+      originalPreview.innerHTML = '';
+      originalPreview.appendChild(fragment);
+    } else {
+      // For larger files, just set innerHTML directly
+      originalPreview.innerHTML = originalText;
+    }
+  },
+  
+  /**
+   * Highlight converted content with optimized performance
+   * @param {Array} tokens - Tokens to highlight
+   * @param {boolean} useDocumentFragments - Whether to use document fragments
+   */
+  highlightConvertedContent: function(tokens, useDocumentFragments) {
+    const { convertedPreview } = this.elements;
+    
+    // Escape HTML
+    let convertedText = this.escapeHtml(NCConverter.state.convertedContent);
+    
+    // First highlight mapped H functions in converted text
+    if (NCConverter.state.hMapping && NCConverter.state.hMapping.length > 0) {
+      // Get mappings where from != to (i.e., H functions that were changed)
+      const changedMappings = NCConverter.state.hMapping.filter(m => 
+        m && m.from && m.to && m.from !== m.to
+      );
+      
+      // For each mapping, highlight all occurrences of the destination H function
+      changedMappings.forEach(mapping => {
+        const pattern = new RegExp('\\b' + this.escapeRegExp(mapping.to) + '\\b', 'g');
+        convertedText = convertedText.replace(pattern, match => {
+          return '<span class="highlight-h-function">' + match + '</span>';
+        });
+      });
+    }
+    
+    // Then highlight converted tokens (in blue)
+    const tokenPattern = this.getTokenPattern(tokens);
+    if (tokenPattern) {
+      convertedText = convertedText.replace(tokenPattern, match => {
+        return '<span class="highlight-token">' + match + '</span>';
+      });
+    }
+    
+    // Update converted preview
+    if (useDocumentFragments) {
+      // Use document fragment for better performance
+      const fragment = document.createDocumentFragment();
+      const div = document.createElement('div');
+      div.innerHTML = convertedText;
+      
+      while (div.firstChild) {
+        fragment.appendChild(div.firstChild);
+      }
+      
+      convertedPreview.innerHTML = '';
+      convertedPreview.appendChild(fragment);
+    } else {
+      // For larger files, just set innerHTML directly
+      convertedPreview.innerHTML = convertedText;
+    }
+  },
+  
+  /**
+   * Escape HTML special characters
+   * @param {string} text - Text to escape
+   * @return {string} Escaped HTML
+   */
+  escapeHtml: function(text) {
+    if (!text) return "";
+    
+    // Use our UIHelpers if available
+    if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.escapeHtml === 'function') {
+      return NCConverter.UIHelpers.escapeHtml(text);
+    }
+    
+    // Otherwise do it ourselves
+    return text.toString()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  },
+  
+  /**
+   * Escape special characters in a regular expression
+   * @param {string} string - String to escape
+   * @return {string} Escaped string
+   */
+  escapeRegExp: function(string) {
+    if (!string) return "";
+    
+    // Use our UIHelpers if available
+    if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.escapeRegExp === 'function') {
+      return NCConverter.UIHelpers.escapeRegExp(string);
+    }
+    
+    // Otherwise do it ourselves
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 };
