@@ -42,7 +42,7 @@ NCConverter.DEFAULT_H_FUNCTIONS = {
 };
 
 // Version information
-NCConverter.APP_VERSION = "1.0.1";
+NCConverter.APP_VERSION = "1.0.2";
 NCConverter.GITHUB_USER = "aardel";
 NCConverter.GITHUB_REPO = "nc-file-converter";
 NCConverter.VERSION_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check once per day (in ms)
