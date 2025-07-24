@@ -86,8 +86,8 @@ NCConverter.Export = {
             <button class="modal-close" aria-label="Close dialog">×</button>
           </div>
           <div class="modal-body">
-            <div style="background: #f0f8ff; border: 1px solid #4a90e2; padding: 10px; margin-bottom: 15px; border-radius: 4px; font-size: 13px;">
-              <strong>Adobe Illustrator users:</strong> If DXF import fails with error 2067, try the DWG format instead. Many users report better compatibility with DWG files in newer Illustrator versions.
+            <div style="background: #e8f4fd; border: 1px solid #2563eb; padding: 12px; margin-bottom: 15px; border-radius: 6px; font-size: 13px; color: #1e40af;">
+              <strong style="color: #1e3a8a;">💡 Adobe Illustrator users:</strong> If DXF import fails with error 2067, try the DWG format instead. Many users report better compatibility with DWG files in newer Illustrator versions.
             </div>
             <form id="dxfExportForm">
               <div class="form-group">
@@ -172,8 +172,8 @@ NCConverter.Export = {
           </div>
           <div class="modal-footer">
             <button id="exportDxfCancelBtn" class="btn-secondary">Cancel</button>
-            <button id="exportDwgSaveBtn" class="btn btn-secondary" style="margin-right: 10px;">Export DWG</button>
-            <button id="exportDxfSaveBtn" class="btn">Export DXF</button>
+            <button id="exportDwgSaveBtn" class="btn" style="margin-right: 10px; background-color: var(--secondary-color); border-color: var(--secondary-color);">Export DWG</button>
+            <button id="exportDxfSaveBtn" class="btn" style="background-color: var(--primary-color); border-color: var(--primary-color);">Export DXF</button>
           </div>
         </div>
       `;
