@@ -86,6 +86,9 @@ NCConverter.Export = {
             <button class="modal-close" aria-label="Close dialog">×</button>
           </div>
           <div class="modal-body">
+            <div style="background: #f0f8ff; border: 1px solid #4a90e2; padding: 10px; margin-bottom: 15px; border-radius: 4px; font-size: 13px;">
+              <strong>Adobe Illustrator users:</strong> If DXF import fails with error 2067, try the DWG format instead. Many users report better compatibility with DWG files in newer Illustrator versions.
+            </div>
             <form id="dxfExportForm">
               <div class="form-group">
                 <label for="exportMode">Export mode:</label>
@@ -169,6 +172,7 @@ NCConverter.Export = {
           </div>
           <div class="modal-footer">
             <button id="exportDxfCancelBtn" class="btn-secondary">Cancel</button>
+            <button id="exportDwgSaveBtn" class="btn btn-secondary" style="margin-right: 10px;">Export DWG</button>
             <button id="exportDxfSaveBtn" class="btn">Export DXF</button>
           </div>
         </div>
@@ -270,7 +274,8 @@ NCConverter.Export = {
     const dialog = document.getElementById('dxfExportDialog');
     const closeBtn = dialog.querySelector('.modal-close');
     const cancelBtn = document.getElementById('exportDxfCancelBtn');
-    const saveBtn = document.getElementById('exportDxfSaveBtn');
+    const saveDxfBtn = document.getElementById('exportDxfSaveBtn');
+    const saveDwgBtn = document.getElementById('exportDwgSaveBtn');
     const exportModeSelect = document.getElementById('exportMode');
     const pointSettingsContainer = document.getElementById('pointSettingsContainer');
     
@@ -281,11 +286,18 @@ NCConverter.Export = {
     // Click on overlay to close
     dialog.querySelector('.modal-overlay').addEventListener('click', this.hideDXFExportDialog.bind(this));
     
-    // Export button
-    saveBtn.addEventListener('click', () => {
+    // Export DXF button
+    saveDxfBtn.addEventListener('click', () => {
       this.saveExportSettings();
       this.hideDXFExportDialog();
       this.generateEnhancedDXF();
+    });
+    
+    // Export DWG button
+    saveDwgBtn.addEventListener('click', () => {
+      this.saveExportSettings();
+      this.hideDXFExportDialog();
+      this.generateEnhancedDWG();
     });
     
     // Show/hide point settings based on export mode
@@ -556,6 +568,145 @@ NCConverter.Export = {
     } catch (e) {
       console.error("DXF export error:", e);
       NCConverter.UIHelpers.showToast("Failed to export as DXF: " + e.message, "error");
+    }
+  },
+  
+  /**
+   * Generate enhanced DWG file (same format as DXF but with .dwg extension)
+   * Many users report better Adobe Illustrator compatibility with DWG vs DXF
+   */
+  generateEnhancedDWG: function() {
+    try {
+      // Find G-code coordinates, circles, and arcs
+      const coordinates = [];
+      const circles = [];
+      const arcs = [];
+      
+      const content = NCConverter.state.convertedContent;
+      const lines = content.split('\n');
+      
+      let currentX = 0;
+      let currentY = 0;
+      let currentZ = 0;
+      
+      lines.forEach((line) => {
+        // Extract coordinates
+        const xMatch = line.match(/X\s*(-?\d+(?:\.\d+)?)/i);
+        const yMatch = line.match(/Y\s*(-?\d+(?:\.\d+)?)/i);
+        const zMatch = line.match(/Z\s*(-?\d+(?:\.\d+)?)/i);
+        
+        if (xMatch) currentX = parseFloat(xMatch[1]);
+        if (yMatch) currentY = parseFloat(yMatch[1]);
+        if (zMatch) currentZ = parseFloat(zMatch[1]);
+        
+        // Only add points when we have valid XY coordinates
+        if (xMatch || yMatch) {
+          coordinates.push({ x: currentX, y: currentY, z: currentZ });
+        }
+        
+        // Check for G02/G03 arc commands
+        if (this.exportSettings.includeArcs && (line.match(/G0?2\b/i) || line.match(/G0?3\b/i))) {
+          const clockwise = line.match(/G0?2\b/i) !== null;
+          const iMatch = line.match(/I\s*(-?\d+(?:\.\d+)?)/i);
+          const jMatch = line.match(/J\s*(-?\d+(?:\.\d+)?)/i);
+          const rMatch = line.match(/R\s*(-?\d+(?:\.\d+)?)/i);
+          
+          // If we have either I/J or R values, it's an arc
+          if ((iMatch && jMatch) || rMatch) {
+            const prevCoord = coordinates.length > 1 ? coordinates[coordinates.length - 2] : { x: 0, y: 0 };
+            const endCoord = coordinates[coordinates.length - 1];
+            
+            if (rMatch) {
+              // R-parameter arc
+              const radius = Math.abs(parseFloat(rMatch[1]));
+              arcs.push({
+                startX: prevCoord.x,
+                startY: prevCoord.y,
+                endX: endCoord.x,
+                endY: endCoord.y,
+                radius: radius,
+                clockwise: clockwise
+              });
+            } else {
+              // I/J-parameter arc
+              const centerX = prevCoord.x + parseFloat(iMatch ? iMatch[1] : 0);
+              const centerY = prevCoord.y + parseFloat(jMatch ? jMatch[1] : 0);
+              const radius = Math.sqrt(
+                Math.pow(prevCoord.x - centerX, 2) + 
+                Math.pow(prevCoord.y - centerY, 2)
+              );
+              
+              // Check if it's a full circle (start point = end point)
+              if (Math.abs(prevCoord.x - endCoord.x) < 0.001 && 
+                  Math.abs(prevCoord.y - endCoord.y) < 0.001) {
+                circles.push({
+                  centerX: centerX,
+                  centerY: centerY,
+                  radius: radius
+                });
+              } else {
+                arcs.push({
+                  startX: prevCoord.x,
+                  startY: prevCoord.y,
+                  endX: endCoord.x,
+                  endY: endCoord.y,
+                  centerX: centerX,
+                  centerY: centerY,
+                  radius: radius,
+                  clockwise: clockwise
+                });
+              }
+            }
+          }
+        }
+      });
+      
+      // Generate DWG content (same structure as DXF)
+      let dwgContent = this.generateDXFHeader();
+      
+      // Add entities based on selected export mode
+      if (this.exportSettings.exportMode === 'polyline' && coordinates.length > 0) {
+        dwgContent += this.generatePolyline(coordinates);
+      } else if (this.exportSettings.exportMode === 'lines' && coordinates.length > 1) {
+        dwgContent += this.generateLines(coordinates);
+      } else if (this.exportSettings.exportMode === 'points' && coordinates.length > 0) {
+        dwgContent += this.generatePoints(coordinates);
+      }
+      
+      // Add circles and arcs if enabled
+      if (this.exportSettings.includeCircles) {
+        circles.forEach(circle => {
+          dwgContent += this.generateCircle(circle);
+        });
+      }
+      
+      if (this.exportSettings.includeArcs) {
+        arcs.forEach(arc => {
+          dwgContent += this.generateArc(arc);
+        });
+      }
+      
+      // Finish DWG file
+      dwgContent += this.generateDXFFooter();
+      
+      // Create file and trigger download with .dwg extension
+      const blob = new Blob([dwgContent], { type: "application/dwg" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.download = (NCConverter.state.selectedFile ? NCConverter.state.selectedFile.name.split(".")[0] : "nc-file") + ".dwg";
+      a.href = url;
+      a.click();
+      
+      // Clean up URL object after download
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+      NCConverter.UIHelpers.showToast("DWG export created (try this format if DXF fails in Illustrator)", "success");
+      
+    } catch (e) {
+      console.error("DWG export error:", e);
+      NCConverter.UIHelpers.showToast("Failed to export as DWG: " + e.message, "error");
     }
   },
   
