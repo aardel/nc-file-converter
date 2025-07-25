@@ -713,24 +713,34 @@ input:checked + .slider:before {
 .visualization-canvas-wrapper {
   flex: 1;
   min-width: 400px;
-  background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
-  border: 2px solid var(--gray-300);
+  background: radial-gradient(ellipse at center, #0f172a 0%, #020617 100%);
+  border: 1px solid rgba(100, 116, 139, 0.3);
   border-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.4),
+    0 10px 10px -5px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   overflow: hidden;
   position: relative;
   height: 500px;
-  transition: var(--transition);
+  transition: all 0.3s ease;
 }
 
 .visualization-canvas-wrapper:hover {
-  box-shadow: 0 20px 25px rgba(0,0,0,0.25);
-  transform: translateY(-2px);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 20px 25px -5px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
 }
 
 .dark-mode .visualization-canvas-wrapper {
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-  border-color: var(--gray-600);
+  background: radial-gradient(ellipse at center, #020617 0%, #000000 100%);
+  border-color: rgba(51, 65, 85, 0.4);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.6),
+    0 10px 10px -5px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* Enhanced canvas styling for better toolpath visibility */
@@ -741,8 +751,10 @@ input:checked + .slider:before {
   touch-action: none;
   cursor: grab;
   background: transparent;
-  /* Enhance contrast and brightness for better visibility */
-  filter: contrast(1.3) brightness(1.2) saturate(1.1);
+  /* Optimize rendering for sharp lines and smooth graphics */
+  image-rendering: auto;
+  image-rendering: crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 #visualizationCanvas:active {
@@ -758,38 +770,46 @@ input:checked + .slider:before {
   flex-direction: column;
   gap: var(--space-2);
   z-index: 10;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(10px);
+  border-radius: var(--border-radius);
+  padding: var(--space-2);
+  border: 1px solid rgba(100, 116, 139, 0.2);
 }
 
 .visualization-control-btn {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--border-radius);
+  background: rgba(59, 130, 246, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: var(--border-radius-sm);
   padding: var(--space-2);
   cursor: pointer;
-  transition: var(--transition);
-  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  color: white;
   font-size: 16px;
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 600;
 }
 
 .visualization-control-btn:hover {
-  background: rgba(255, 255, 255, 1);
-  box-shadow: var(--shadow);
-  transform: scale(1.05);
+  background: rgba(59, 130, 246, 1);
+  border-color: rgba(59, 130, 246, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
 .dark-mode .visualization-control-btn {
-  background: rgba(45, 55, 72, 0.95);
-  border-color: var(--gray-600);
-  color: var(--gray-200);
+  background: rgba(59, 130, 246, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: white;
 }
 
 .dark-mode .visualization-control-btn:hover {
-  background: rgba(45, 55, 72, 1);
+  background: rgba(59, 130, 246, 1);
+  border-color: rgba(59, 130, 246, 0.8);
 }
 
 /* Visualization Info Panel */
@@ -865,4 +885,117 @@ input:checked + .slider:before {
   stroke-dasharray: 4,4;
   opacity: 0.7;
   filter: drop-shadow(0 0 1px currentColor);
+}
+
+/* Save Path Settings Styles */
+#savePathStatus {
+  border: 1px solid;
+  border-radius: var(--border-radius-sm);
+  padding: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#browseSavePathBtn {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  border: none;
+  color: white;
+  font-weight: 600;
+  transition: var(--transition);
+  box-shadow: var(--shadow-sm);
+}
+
+#browseSavePathBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+#browseSavePathBtn:active {
+  transform: translateY(0);
+}
+
+#saveConvertedBtn {
+  background: linear-gradient(135deg, var(--success-color), #20a085);
+  border: none;
+  color: white;
+  font-weight: 600;
+  transition: var(--transition);
+}
+
+#saveConvertedBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+#saveConvertedBtn:disabled {
+  background: var(--gray-400);
+  color: var(--gray-600);
+  cursor: not-allowed;
+  transform: none;
+}
+
+#savePathStatus.success {
+  background-color: #d4edda;
+  color: #155724;
+  border-color: #c3e6cb;
+}
+
+#savePathStatus.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border-color: #f5c6cb;
+}
+
+#savePathStatus.warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border-color: #ffeaa7;
+}
+
+#savePathStatus.info {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border-color: #bee5eb;
+}
+
+/* Dark mode adjustments for save path status */
+.dark-mode #savePathStatus.success {
+  background-color: #1e4620;
+  color: #c8e6c9;
+  border-color: #2e7d32;
+}
+
+.dark-mode #savePathStatus.error {
+  background-color: #4a1e1e;
+  color: #ffcdd2;
+  border-color: #d32f2f;
+}
+
+.dark-mode #savePathStatus.warning {
+  background-color: #4a3c1e;
+  color: #fff9c4;
+  border-color: #f9a825;
+}
+
+.dark-mode #savePathStatus.info {
+  background-color: #1e3a4a;
+  color: #b3e5fc;
+  border-color: #0288d1;
+}
+
+/* Save button styling */
+#saveConvertedBtn {
+  background-color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+#saveConvertedBtn:hover:not(:disabled) {
+  background-color: #05c287;
+  border-color: #05c287;
+}
+
+#saveConvertedBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

@@ -692,7 +692,7 @@ NCConverter.Export = {
    */
   generateDXFHeader: function() {
     return `999
-DXF created by NC File Converter v2.1.2 - Adobe Illustrator Optimized
+DXF created by NC File Converter v2.1.3 - Adobe Illustrator Optimized
 0
 SECTION
 2

@@ -498,6 +498,38 @@ NCConverter.TabManager = {
         </div>
       </div>
       
+      <!-- Save Path Settings Card -->
+      <div class="card" style="margin-bottom: var(--space-4);">
+        <div class="card-header">
+          <h4 style="margin-bottom: 0;">Save Path Settings</h4>
+        </div>
+        <div class="card-body">
+          <p>Choose where to save converted files. Use 'Browse' for easy folder selection on modern browsers.</p>
+          
+          <div class="form-group">
+            <label for="customSavePath">Save Location:</label>
+            <div style="display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-2);">
+              <button id="browseSavePathBtn" class="btn" style="min-width: 120px;">📁 Browse Folder</button>
+              <span style="color: var(--gray-600); font-size: 14px;">← Recommended: Click to select a folder</span>
+            </div>
+            <div style="display: flex; gap: var(--space-2); align-items: center;">
+              <input type="text" id="customSavePath" placeholder="Or enter path manually: /Users/username/Documents/NC-Files" 
+                     style="flex-grow: 1; font-family: monospace; font-size: 12px;">
+              <button id="testSavePathBtn" class="btn-sm">Test</button>
+            </div>
+            <small style="display: block; margin-top: 4px; color: var(--text-muted);">
+              <strong>Mac:</strong> /Users/username/Documents/NC-Files<br>
+              <strong>Windows:</strong> C:\\Users\\username\\Documents\\NC-Files or \\\\server\\share\\folder<br>
+              <strong>Linux:</strong> /home/username/Documents/NC-Files
+            </small>
+          </div>
+          
+          <div id="savePathStatus" style="margin-top: var(--space-2); padding: var(--space-2); border-radius: var(--border-radius-sm); display: none;">
+            <!-- Path validation status will be shown here -->
+          </div>
+        </div>
+      </div>
+      
       <!-- Token Management Card -->
       <div class="card" style="margin-bottom: var(--space-4);">
         <div class="card-header">

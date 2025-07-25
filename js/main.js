@@ -15,6 +15,7 @@ NCConverter.state = {
   selectedFile: null,     // Currently selected file object
   finalUnits: "mm",       // The units after conversion (mm or inches)
   currentlyEditingH: null, // Currently editing H function (if any)
+  directoryHandle: null,  // Directory handle for modern browsers
   initialized: false      // Whether app is fully initialized
 };
 
@@ -38,6 +39,7 @@ NCConverter.config = {
     'Preview',          // Preview display
     'Search',           // Search functionality 
     'Export',           // Export functionality
+    'FileSaver',        // File saving to custom paths
     'FileHandler',      // File handling
     'VersionCheck'      // Version checking
   ],

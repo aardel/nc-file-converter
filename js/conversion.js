@@ -577,6 +577,11 @@ NCConverter.Conversion = {
         downloadConvertedBtn.disabled = false;
       }
       
+      // Update save button state
+      if (NCConverter.FileSaver && typeof NCConverter.FileSaver.updateSaveButton === "function") {
+        NCConverter.FileSaver.updateSaveButton();
+      }
+      
       // Show success notification
       if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.showToast === "function") {
         NCConverter.UIHelpers.showToast("Conversion complete!", "success");

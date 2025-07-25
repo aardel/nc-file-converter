@@ -41,22 +41,32 @@ NCConverter.Visualization = {
   },
   
   /**
-   * Color configuration for different path types
+   * Color configuration for different path types with improved visual design
    */
   colors: {
-    rapidTraverse: '#64748b',  // Gray for non-cutting moves (laser off)
-    cutting: '#60a5fa',        // Bright blue for regular cutting (laser on)
-    h1: '#f87171',             // Bright red for H1 cutting
-    h2: '#fbbf24',             // Bright yellow for H2 cutting
-    h3: '#34d399',             // Bright green for H3 cutting
-    h4: '#38bdf8',             // Bright cyan for H4 cutting
-    h20: '#a78bfa',            // Purple for H20 (engraving)
-    h22: '#fb7185',            // Pink for H22 (fine cut)
-    h104: '#f97316',           // Orange for H104 (milling)
-    background: '#1a202c',     // Dark background
-    grid: '#4a5568',           // Medium gray grid
-    darkBackground: '#0f172a', // Darker mode background
-    darkGrid: '#64748b'        // Lighter grid for dark mode
+    // Improved color palette with better contrast and modern look
+    rapidTraverse: '#64748b',    // Gray for non-cutting moves (laser off)
+    cutting: '#3b82f6',          // Modern blue for regular cutting (laser on)
+    h1: '#ef4444',               // Red for H1 cutting
+    h2: '#f59e0b',               // Amber for H2 cutting  
+    h3: '#22c55e',               // Green for H3 cutting
+    h4: '#06b6d4',               // Cyan for H4 cutting
+    h20: '#8b5cf6',              // Purple for H20 (engraving)
+    h22: '#ec4899',              // Pink for H22 (fine cut)
+    h104: '#f97316',             // Orange for H104 (milling)
+    background: '#1e293b',       // Modern dark background
+    grid: '#475569',             // Subtle grid
+    gridMajor: '#64748b',        // Major grid lines
+    axis: '#e2e8f0',             // Light axis lines
+    startPoint: '#dc2626',       // Bright red for start point
+    endPoint: '#16a34a',         // Green for end point
+    darkBackground: '#0f172a',   // Darker mode background
+    darkGrid: '#334155',         // Darker grid
+    legend: {
+      background: 'rgba(15, 23, 42, 0.9)',
+      border: 'rgba(100, 116, 139, 0.3)',
+      text: '#e2e8f0'
+    }
   },
   
   /**
@@ -203,7 +213,7 @@ NCConverter.Visualization = {
           const dy = e.offsetY - this.state.lastMouseY;
           
           this.state.panX += dx;
-          this.state.panY += dy;
+          this.state.panY -= dy; // Negate Y to match natural panning (up mouse = up view)
           
           this.state.lastMouseX = e.offsetX;
           this.state.lastMouseY = e.offsetY;
@@ -231,9 +241,9 @@ NCConverter.Visualization = {
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
         
-        // Convert mouse position to world space
+        // Convert mouse position to world space (accounting for Y-axis flip)
         const worldX = (mouseX - this.state.panX) / this.state.scale;
-        const worldY = (mouseY - this.state.panY) / this.state.scale;
+        const worldY = (canvas.height - mouseY - this.state.panY) / this.state.scale;
         
         // Determine zoom direction
         const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
@@ -241,9 +251,9 @@ NCConverter.Visualization = {
         // Apply zoom
         this.state.scale *= zoomFactor;
         
-        // Adjust pan to zoom toward mouse position
+        // Adjust pan to zoom toward mouse position (accounting for Y-axis flip)
         this.state.panX = mouseX - worldX * this.state.scale;
-        this.state.panY = mouseY - worldY * this.state.scale;
+        this.state.panY = canvas.height - mouseY - worldY * this.state.scale;
         
         // Redraw
         this.redraw();
@@ -605,11 +615,15 @@ NCConverter.Visualization = {
   },
   
   /**
-   * Redraw the entire visualization
+   * Redraw the entire visualization with enhanced quality
    */
   redraw: function() {
     const { canvas, ctx } = this.state;
     if (!canvas || !ctx) return;
+    
+    // Enable high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -617,35 +631,43 @@ NCConverter.Visualization = {
     // Draw grid
     this.drawGrid();
     
-    // Draw toolpaths
+    // Draw toolpaths with enhanced styling
     this.drawToolpaths();
   },
   
   /**
-   * Draw the background grid
+   * Draw the background grid with improved styling
    */
   drawGrid: function() {
-    const { canvas, ctx, scale, panX, panY, darkMode } = this.state;
+    const { canvas, ctx, scale, panX, panY } = this.state;
     if (!canvas || !ctx) return;
     
-    // Use dark mode colors for better visibility
-    const useDarkMode = true; // Always use dark mode for better contrast
-    ctx.strokeStyle = useDarkMode ? this.colors.darkGrid : this.colors.grid;
-    ctx.lineWidth = 0.3;
-    ctx.globalAlpha = 0.4;
+    // Set high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     
     // Draw background
-    ctx.fillStyle = useDarkMode ? this.colors.darkBackground : this.colors.background;
+    ctx.fillStyle = this.colors.darkBackground;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Determine grid size based on scale
+    // Determine grid size based on scale for better visual hierarchy
     let gridSize = 10; // mm
+    let majorGridSize = 50; // mm
     
     // Adjust grid size based on zoom level
-    if (scale < 0.5) gridSize = 50;
-    else if (scale < 1) gridSize = 20;
-    else if (scale > 5) gridSize = 5;
-    else if (scale > 10) gridSize = 1;
+    if (scale < 0.5) {
+      gridSize = 50;
+      majorGridSize = 200;
+    } else if (scale < 1) {
+      gridSize = 20;
+      majorGridSize = 100;
+    } else if (scale > 5) {
+      gridSize = 5;
+      majorGridSize = 25;
+    } else if (scale > 10) {
+      gridSize = 1;
+      majorGridSize = 10;
+    }
     
     // Calculate grid boundaries
     const startX = Math.floor((0 - panX) / scale / gridSize) * gridSize;
@@ -653,31 +675,59 @@ NCConverter.Visualization = {
     const startY = Math.floor((0 - panY) / scale / gridSize) * gridSize;
     const endY = Math.ceil((canvas.height - panY) / scale / gridSize) * gridSize;
     
-    // Draw vertical grid lines
+    // Draw minor grid lines
+    ctx.strokeStyle = this.colors.darkGrid;
+    ctx.lineWidth = 0.5;
+    ctx.globalAlpha = 0.3;
+    
+    // Vertical grid lines
     for (let x = startX; x <= endX; x += gridSize) {
-      const screenX = x * scale + panX;
+      const screenX = Math.round(x * scale + panX) + 0.5; // +0.5 for crisp lines
       ctx.beginPath();
       ctx.moveTo(screenX, 0);
       ctx.lineTo(screenX, canvas.height);
       ctx.stroke();
     }
     
-    // Draw horizontal grid lines with flipped Y-axis
+    // Horizontal grid lines with flipped Y-axis
     for (let y = startY; y <= endY; y += gridSize) {
-      const screenY = canvas.height - (y * scale + panY);
+      const screenY = Math.round(canvas.height - (y * scale + panY)) + 0.5;
       ctx.beginPath();
       ctx.moveTo(0, screenY);
       ctx.lineTo(canvas.width, screenY);
       ctx.stroke();
     }
     
-    // Draw axes with different color
+    // Draw major grid lines
+    ctx.strokeStyle = this.colors.gridMajor;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.5;
+    
+    // Major vertical grid lines
+    for (let x = Math.floor(startX / majorGridSize) * majorGridSize; x <= endX; x += majorGridSize) {
+      const screenX = Math.round(x * scale + panX) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(screenX, 0);
+      ctx.lineTo(screenX, canvas.height);
+      ctx.stroke();
+    }
+    
+    // Major horizontal grid lines with flipped Y-axis
+    for (let y = Math.floor(startY / majorGridSize) * majorGridSize; y <= endY; y += majorGridSize) {
+      const screenY = Math.round(canvas.height - (y * scale + panY)) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, screenY);
+      ctx.lineTo(canvas.width, screenY);
+      ctx.stroke();
+    }
+    
+    // Draw axes with enhanced styling
     ctx.globalAlpha = 0.8;
-    ctx.strokeStyle = useDarkMode ? '#ffffff' : '#000000';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = this.colors.axis;
+    ctx.lineWidth = 2;
     
     // X axis with flipped Y-axis
-    const originY = canvas.height - (0 * scale + panY);
+    const originY = Math.round(canvas.height - (0 * scale + panY)) + 0.5;
     if (originY >= 0 && originY <= canvas.height) {
       ctx.beginPath();
       ctx.moveTo(0, originY);
@@ -685,8 +735,8 @@ NCConverter.Visualization = {
       ctx.stroke();
     }
     
-    // Y axis (no change needed for vertical line)
-    const originX = 0 * scale + panX;
+    // Y axis
+    const originX = Math.round(0 * scale + panX) + 0.5;
     if (originX >= 0 && originX <= canvas.width) {
       ctx.beginPath();
       ctx.moveTo(originX, 0);
@@ -694,83 +744,305 @@ NCConverter.Visualization = {
       ctx.stroke();
     }
     
-    // Reset alpha for paths
+    // Reset alpha
     ctx.globalAlpha = 1.0;
   },
   
   /**
-   * Draw all toolpaths - Simplified version for M14/M15 paths only
+   * Draw all toolpaths with improved visual quality
    */
   drawToolpaths: function() {
     const { canvas, ctx, scale, panX, panY, paths } = this.state;
     if (!canvas || !ctx || !paths.length) return;
     
-    NCConverter.debugLog(`🎨 Drawing ${paths.length} paths`);
+    NCConverter.debugLog(`🎨 Drawing ${paths.length} paths with enhanced quality`);
     
-    // Draw each path
+    // Set high-quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    
+    // Collect used H functions for legend
+    const usedHFunctions = new Set();
+    
+    // Draw each path with improved styling
     paths.forEach((path, pathIndex) => {
       if (path.points.length < 2) return;
       
-      ctx.beginPath();
-      ctx.globalAlpha = 1.0; // Full opacity for all drawing paths
-      
-      // Set line style based on H function
+      // Track used H functions
       if (path.hFunction) {
-        // Use specific color based on H function
-        if (path.hFunction.startsWith('H1')) {
-          ctx.strokeStyle = this.colors.h1;
-        } else if (path.hFunction.startsWith('H2')) {
-          ctx.strokeStyle = this.colors.h2;
-        } else if (path.hFunction.startsWith('H3')) {
-          ctx.strokeStyle = this.colors.h3;
-        } else if (path.hFunction.startsWith('H4')) {
-          ctx.strokeStyle = this.colors.h4;
-        } else if (path.hFunction.startsWith('H20')) {
-          ctx.strokeStyle = this.colors.h20;
-        } else if (path.hFunction.startsWith('H22')) {
-          ctx.strokeStyle = this.colors.h22;
-        } else if (path.hFunction.startsWith('H104')) {
-          ctx.strokeStyle = this.colors.h104;
-        } else {
-          ctx.strokeStyle = this.colors.cutting;
+        usedHFunctions.add(path.hFunction);
+      }
+      
+      ctx.globalAlpha = 0.9; // Slightly transparent for better overlapping
+      
+      // Set line style based on H function with improved colors
+      let strokeColor = this.colors.cutting;
+      let lineWidth = 1.5; // Thinner, more elegant lines
+      
+      if (path.hFunction) {
+        const hFunc = path.hFunction.toLowerCase();
+        if (hFunc.startsWith('h1')) {
+          strokeColor = this.colors.h1;
+          lineWidth = 2.0; // Slightly thicker for primary cutting
+        } else if (hFunc.startsWith('h2')) {
+          strokeColor = this.colors.h2;
+          lineWidth = 1.8;
+        } else if (hFunc.startsWith('h3')) {
+          strokeColor = this.colors.h3;
+          lineWidth = 1.6;
+        } else if (hFunc.startsWith('h4')) {
+          strokeColor = this.colors.h4;
+          lineWidth = 1.4;
+        } else if (hFunc.startsWith('h20')) {
+          strokeColor = this.colors.h20;
+          lineWidth = 1.2; // Thinner for engraving
+        } else if (hFunc.startsWith('h22')) {
+          strokeColor = this.colors.h22;
+          lineWidth = 1.0; // Very thin for fine cut
+        } else if (hFunc.startsWith('h104')) {
+          strokeColor = this.colors.h104;
+          lineWidth = 2.2; // Thicker for milling
         }
-        NCConverter.debugLog(`Path ${pathIndex}: H-function ${path.hFunction} with ${path.points.length} points`);
+        
+        NCConverter.debugLog(`Path ${pathIndex}: ${path.hFunction} with ${path.points.length} points`);
       } else {
-        ctx.strokeStyle = this.colors.cutting;
         NCConverter.debugLog(`Path ${pathIndex}: No H-function with ${path.points.length} points`);
       }
       
-      ctx.lineWidth = 2.5; // Consistent thick lines for all drawing paths
-      ctx.setLineDash([]); // Solid lines only
+      // Apply dynamic line width based on zoom for better visibility
+      const dynamicLineWidth = Math.max(0.8, lineWidth / Math.sqrt(scale)) * 1.5;
       
-      // Draw the path with corrected coordinate system
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = dynamicLineWidth;
+      ctx.setLineDash([]); // Solid lines
+      
+      // Add subtle shadow for depth
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 2;
+      ctx.shadowOffsetX = 0.5;
+      ctx.shadowOffsetY = 0.5;
+      
+      // Draw the path with anti-aliased lines
+      ctx.beginPath();
       const startPoint = path.points[0];
-      // Flip Y-axis to match G-code coordinate system (G-code Y increases upward, canvas Y increases downward)
       const startY = canvas.height - (startPoint.y * scale + panY);
       ctx.moveTo(startPoint.x * scale + panX, startY);
       
       for (let i = 1; i < path.points.length; i++) {
         const point = path.points[i];
-        // Flip Y-axis for each point
         const pointY = canvas.height - (point.y * scale + panY);
         ctx.lineTo(point.x * scale + panX, pointY);
       }
       
       ctx.stroke();
+      
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
     });
     
-    // Draw start point marker with corrected coordinate system
-    if (paths.length > 0 && paths[0].points.length > 0) {
-      const startPoint = paths[0].points[0];
-      ctx.fillStyle = '#ff0000';
-      ctx.beginPath();
-      // Flip Y-axis for start point marker
-      const markerY = canvas.height - (startPoint.y * scale + panY);
-      ctx.arc(startPoint.x * scale + panX, markerY, 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    // Draw start and end point markers with improved styling
+    this.drawPointMarkers();
+    
+    // Draw legend with used H functions
+    this.drawLegend(Array.from(usedHFunctions));
     
     // Reset alpha
     ctx.globalAlpha = 1.0;
+  },
+  
+  /**
+   * Draw start and end point markers with enhanced styling
+   */
+  drawPointMarkers: function() {
+    const { canvas, ctx, scale, panX, panY, paths } = this.state;
+    if (!canvas || !ctx || !paths.length) return;
+    
+    // Draw start point marker
+    if (paths[0].points.length > 0) {
+      const startPoint = paths[0].points[0];
+      const markerY = canvas.height - (startPoint.y * scale + panY);
+      const markerX = startPoint.x * scale + panX;
+      
+      // Outer ring
+      ctx.fillStyle = this.colors.startPoint;
+      ctx.beginPath();
+      ctx.arc(markerX, markerY, 6, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner circle
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(markerX, markerY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Label
+      ctx.fillStyle = this.colors.legend.text;
+      ctx.font = '12px Inter, sans-serif';
+      ctx.fillText('START', markerX + 10, markerY + 4);
+    }
+    
+    // Draw end point marker
+    const lastPath = paths[paths.length - 1];
+    if (lastPath.points.length > 0) {
+      const endPoint = lastPath.points[lastPath.points.length - 1];
+      const markerY = canvas.height - (endPoint.y * scale + panY);
+      const markerX = endPoint.x * scale + panX;
+      
+      // Outer ring
+      ctx.fillStyle = this.colors.endPoint;
+      ctx.beginPath();
+      ctx.arc(markerX, markerY, 6, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Inner circle
+      ctx.fillStyle = 'white';
+      ctx.beginPath();
+      ctx.arc(markerX, markerY, 3, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Label
+      ctx.fillStyle = this.colors.legend.text;
+      ctx.font = '12px Inter, sans-serif';
+      ctx.fillText('END', markerX + 10, markerY + 4);
+    }
+  },
+  
+  /**
+   * Draw legend showing cutting types by color
+   */
+  drawLegend: function(usedHFunctions) {
+    const { canvas, ctx } = this.state;
+    if (!canvas || !ctx) return;
+    
+    // Sort H functions for consistent display
+    const sortedHFunctions = usedHFunctions.sort((a, b) => {
+      const numA = parseInt(a.replace('H', ''));
+      const numB = parseInt(b.replace('H', ''));
+      return numA - numB;
+    });
+    
+    // Add default cutting if no H functions
+    const legendItems = [];
+    if (sortedHFunctions.length === 0) {
+      legendItems.push({ label: 'Cutting', color: this.colors.cutting, hFunction: null });
+    } else {
+      sortedHFunctions.forEach(hFunc => {
+        let color = this.colors.cutting;
+        
+        // Get the description from settings
+        let description = 'Cutting';
+        if (NCConverter.state && NCConverter.state.settings && NCConverter.state.settings.hFunctions) {
+          const settingsName = NCConverter.state.settings.hFunctions[hFunc.toUpperCase()];
+          if (settingsName) {
+            description = settingsName;
+          }
+        }
+        
+        // If no settings name found, try default H functions
+        if (description === 'Cutting' && NCConverter.DEFAULT_H_FUNCTIONS) {
+          const defaultName = NCConverter.DEFAULT_H_FUNCTIONS[hFunc.toUpperCase()];
+          if (defaultName) {
+            description = defaultName;
+          }
+        }
+        
+        // Assign colors based on H function
+        const hLower = hFunc.toLowerCase();
+        if (hLower.startsWith('h1')) {
+          color = this.colors.h1;
+        } else if (hLower.startsWith('h2')) {
+          color = this.colors.h2;
+        } else if (hLower.startsWith('h3')) {
+          color = this.colors.h3;
+        } else if (hLower.startsWith('h4')) {
+          color = this.colors.h4;
+        } else if (hLower.startsWith('h20')) {
+          color = this.colors.h20;
+        } else if (hLower.startsWith('h22')) {
+          color = this.colors.h22;
+        } else if (hLower.startsWith('h104')) {
+          color = this.colors.h104;
+        }
+        
+        legendItems.push({ label: `${hFunc} - ${description}`, color, hFunction: hFunc });
+      });
+    }
+    
+    if (legendItems.length === 0) return;
+    
+    // Calculate legend dimensions
+    const itemHeight = 24;
+    const padding = 12;
+    const legendWidth = 180;
+    const legendHeight = (legendItems.length * itemHeight) + (padding * 2) + 20; // +20 for title
+    
+    // Position legend in top-right corner
+    const legendX = canvas.width - legendWidth - 20;
+    const legendY = 20;
+    
+    // Draw legend background with modern styling
+    ctx.fillStyle = this.colors.legend.background;
+    ctx.strokeStyle = this.colors.legend.border;
+    ctx.lineWidth = 1;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 2;
+    
+    this.roundRect(ctx, legendX, legendY, legendWidth, legendHeight, 8);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Reset shadow
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    
+    // Draw legend title
+    ctx.fillStyle = this.colors.legend.text;
+    ctx.font = 'bold 14px Inter, sans-serif';
+    ctx.fillText('Cutting Types', legendX + padding, legendY + padding + 14);
+    
+    // Draw legend items
+    ctx.font = '12px Inter, sans-serif';
+    legendItems.forEach((item, index) => {
+      const itemY = legendY + padding + 30 + (index * itemHeight);
+      
+      // Draw color indicator (line)
+      ctx.strokeStyle = item.color;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(legendX + padding, itemY);
+      ctx.lineTo(legendX + padding + 20, itemY);
+      ctx.stroke();
+      
+      // Draw label
+      ctx.fillStyle = this.colors.legend.text;
+      ctx.fillText(item.label, legendX + padding + 30, itemY + 4);
+    });
+  },
+  
+  /**
+   * Helper function to draw rounded rectangles
+   */
+  roundRect: function(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
   }
 };

@@ -98,6 +98,9 @@ NCConverter.BatchProcessor = {
                 <button id="downloadAllBtn" class="btn">
                   <i class="icon">⬇️</i> Download All (ZIP)
                 </button>
+                <button id="saveAllToPathBtn" class="btn" style="margin-left: var(--space-2);">
+                  <i class="icon">💾</i> Save All to Path
+                </button>
               </div>
             </div>
           </div>
@@ -120,6 +123,7 @@ NCConverter.BatchProcessor = {
     const clearBatchBtn = document.getElementById('clearBatchBtn');
     const processBatchBtn = document.getElementById('processBatchBtn');
     const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const saveAllToPathBtn = document.getElementById('saveAllToPathBtn');
     
     if (batchFileArea && batchFileInput) {
       // File drop area click
@@ -166,6 +170,11 @@ NCConverter.BatchProcessor = {
     // Download all button
     if (downloadAllBtn) {
       downloadAllBtn.addEventListener('click', this.downloadAllResults.bind(this));
+    }
+    
+    // Save all to path button
+    if (saveAllToPathBtn) {
+      saveAllToPathBtn.addEventListener('click', this.saveAllToPath.bind(this));
     }
   },
   
@@ -537,7 +546,8 @@ NCConverter.BatchProcessor = {
           <span style="flex-grow: 1; ${!result.success ? 'color: var(--danger-color);' : ''}">${fileName}</span>
           ${result.success ? 
             `<span style="margin-right: var(--space-2);">${result.outputUnit}</span>
-             <button class="download-result-btn btn-sm" data-index="${index}">Download</button>` : 
+             <button class="download-result-btn btn-sm" data-index="${index}" style="margin-right: var(--space-1);">Download</button>
+             <button class="save-result-btn btn-sm" data-index="${index}">💾</button>` : 
             `<span style="color: var(--danger-color);">${result.error}</span>`
           }
         </li>
@@ -553,6 +563,14 @@ NCConverter.BatchProcessor = {
       btn.addEventListener('click', () => {
         const index = parseInt(btn.getAttribute('data-index'));
         this.downloadSingleResult(index);
+      });
+    });
+    
+    // Add event listeners to save-to-path buttons
+    document.querySelectorAll('.save-result-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const index = parseInt(btn.getAttribute('data-index'));
+        this.saveSingleResultToPath(index);
       });
     });
   },
@@ -666,5 +684,107 @@ NCConverter.BatchProcessor = {
     if (bytes < 1024) return bytes + ' bytes';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  },
+  
+  /**
+   * Save a single result file to the custom save path
+   * @param {number} index - Index of the result to save
+   */
+  saveSingleResultToPath: function(index) {
+    if (index >= 0 && index < this.results.length && this.results[index].success) {
+      const result = this.results[index];
+      
+      // Temporarily set the converted content and selected file for FileSaver
+      const originalSelectedFile = NCConverter.state.selectedFile;
+      const originalConvertedContent = NCConverter.state.convertedContent;
+      
+      // Set up for FileSaver
+      NCConverter.state.selectedFile = result.originalFile;
+      NCConverter.state.convertedContent = result.convertedContent;
+      
+      // Use the FileSaver module to handle custom path saving
+      if (NCConverter.FileSaver && typeof NCConverter.FileSaver.handleSaveClick === "function") {
+        NCConverter.FileSaver.handleSaveClick();
+      } else {
+        NCConverter.UIHelpers.showToast("FileSaver module not available", "error");
+      }
+      
+      // Restore original state
+      NCConverter.state.selectedFile = originalSelectedFile;
+      NCConverter.state.convertedContent = originalConvertedContent;
+    }
+  },
+  
+  /**
+   * Save all successful results to the custom save path
+   */
+  saveAllToPath: function() {
+    const successfulResults = this.results.filter(r => r.success);
+    
+    if (successfulResults.length === 0) {
+      NCConverter.UIHelpers.showToast('No successful conversions to save.', 'warning');
+      return;
+    }
+    
+    // Check if we have a directory handle or custom path
+    const hasDirectoryHandle = NCConverter.state.directoryHandle;
+    const customPath = NCConverter.state.settings?.customSavePath?.trim();
+    
+    if (!hasDirectoryHandle && (!customPath || customPath.startsWith('[Selected Directory:'))) {
+      NCConverter.UIHelpers.showToast("Please select a directory using 'Browse' in Settings, or enter a manual path.", "warning");
+      return;
+    }
+    
+    if (hasDirectoryHandle) {
+      this.saveAllToDirectoryHandle(successfulResults);
+    } else {
+      NCConverter.UIHelpers.showToast("Batch save to manual paths requires individual file saves. Please use 'Save All (ZIP)' or save files individually.", "info");
+    }
+  },
+  
+  /**
+   * Save all files using the directory handle
+   * @param {Array} results - Array of successful conversion results
+   */
+  saveAllToDirectoryHandle: async function(results) {
+    try {
+      let savedCount = 0;
+      
+      for (const result of results) {
+        try {
+          // Create filename with appropriate suffix
+          const originalName = result.originalFile.name;
+          const dotIndex = originalName.lastIndexOf('.');
+          const suffix = result.outputUnit;
+          
+          const fileName = dotIndex !== -1
+            ? originalName.substring(0, dotIndex) + '_' + suffix + originalName.substring(dotIndex)
+            : originalName + '_' + suffix;
+          
+          // Create file handle
+          const fileHandle = await NCConverter.state.directoryHandle.getFileHandle(fileName, { create: true });
+          
+          // Write content
+          const writable = await fileHandle.createWritable();
+          await writable.write(result.convertedContent);
+          await writable.close();
+          
+          savedCount++;
+        } catch (fileError) {
+          console.error(`Error saving file ${result.originalFile.name}:`, fileError);
+        }
+      }
+      
+      if (savedCount === results.length) {
+        NCConverter.UIHelpers.showToast(`All ${savedCount} files saved successfully.`, 'success');
+      } else if (savedCount > 0) {
+        NCConverter.UIHelpers.showToast(`${savedCount} of ${results.length} files saved successfully.`, 'warning');
+      } else {
+        NCConverter.UIHelpers.showToast('Failed to save files. Please check directory permissions.', 'error');
+      }
+    } catch (error) {
+      console.error('Error saving files to directory:', error);
+      NCConverter.UIHelpers.showToast('Failed to save files to directory. Please try again.', 'error');
+    }
   }
 };
