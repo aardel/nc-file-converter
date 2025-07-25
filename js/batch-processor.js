@@ -348,7 +348,11 @@ NCConverter.BatchProcessor = {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const content = e.target.result;
+        let content = e.target.result;
+        // Insert inch header if needed (batch)
+        if (NCConverter.Conversion && typeof NCConverter.Conversion.insertInchHeaderIfNeeded === 'function') {
+          content = NCConverter.Conversion.insertInchHeaderIfNeeded(content);
+        }
         
         // Detect units if using auto-detect
         let effectiveConversionType = conversionType;

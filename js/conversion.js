@@ -84,10 +84,10 @@ NCConverter.Conversion = {
       return this.tokenPatterns[patternKey];
     }
     
-    // Create a new pattern
+    // Create a new pattern - Updated to handle decimal numbers starting with dot
     const pattern = new RegExp(
       "(" + tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") +
-      ")(\\s*)(-?\\d+(?:\\.\\d+)?)", "gi"
+      ")(\\s*)(-?(?:\\d*\\.\\d+|\\d+))", "gi"
     );
     
     // Cache for future use
@@ -346,6 +346,38 @@ NCConverter.Conversion = {
   },
   
   /**
+   * Insert inch header if missing and setting is enabled
+   * @param {string} content - File content
+   * @returns {string} Modified content with header if needed
+   */
+  insertInchHeaderIfNeeded: function(content) {
+    const settings = NCConverter.state.settings || {};
+    if (!settings.autoInchHeader) return content;
+    // Normalize line endings
+    let fileContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const lines = fileContent.split('\n');
+    // Trim all lines for matching
+    const trimmedLines = lines.map(line => line.trim());
+    const hasHeader1 = trimmedLines.includes(':P2027=25.4/P674');
+    const hasHeader2 = trimmedLines.includes('G75 X=P2027 Y=P2027');
+    const percentIdx = trimmedLines.findIndex(line => line === '%1');
+    console.log('Header check (batch/single):', { hasHeader1, hasHeader2, percentIdx, lines: trimmedLines.slice(0, 10) });
+    if ((!hasHeader1 || !hasHeader2) && percentIdx !== -1) {
+      let insertIdx = percentIdx + 1;
+      if (!hasHeader1) {
+        lines.splice(insertIdx, 0, ':P2027=25.4/P674');
+        insertIdx++;
+      }
+      if (!hasHeader2) {
+        lines.splice(insertIdx, 0, 'G75 X=P2027 Y=P2027');
+      }
+      fileContent = lines.join('\n');
+      console.log('Inserted inch header after %1 (batch/single):', fileContent.substring(0, 300));
+    }
+    return fileContent;
+  },
+  
+  /**
    * Update the conversion based on current settings
    * @param {boolean} redetectH - Whether to redetect H functions after conversion
    */
@@ -365,6 +397,9 @@ NCConverter.Conversion = {
     }
     
     console.log("File content available, length:", NCConverter.state.fileContent.length);
+    
+    // Auto insert inch header if setting is enabled
+    let fileContent = this.insertInchHeaderIfNeeded(NCConverter.state.fileContent);
     
     // Get tokens
     const tokens = this.getTokens();
@@ -411,13 +446,13 @@ NCConverter.Conversion = {
         const detected = detectedUnitElement.textContent;
         
         if (detected.includes("Inch")) {
-          NCConverter.state.convertedContent = this.inchToMm(NCConverter.state.fileContent, tokens, mmPrec);
+          NCConverter.state.convertedContent = this.inchToMm(fileContent, tokens, mmPrec);
           NCConverter.state.finalUnits = "mm";
           if (NCConverter.Export && typeof NCConverter.Export.createDownloadLink === "function") {
             NCConverter.Export.createDownloadLink("inchToMm");
           }
         } else if (detected.includes("Millimeter")) {
-          NCConverter.state.convertedContent = this.mmToInch(NCConverter.state.fileContent, tokens, inchPrec);
+          NCConverter.state.convertedContent = this.mmToInch(fileContent, tokens, inchPrec);
           NCConverter.state.finalUnits = "inches";
           if (NCConverter.Export && typeof NCConverter.Export.createDownloadLink === "function") {
             NCConverter.Export.createDownloadLink("mmToInch");
@@ -427,20 +462,20 @@ NCConverter.Conversion = {
           return;
         }
       } else if (conversionType === "inchToMm") {
-        NCConverter.state.convertedContent = this.inchToMm(NCConverter.state.fileContent, tokens, mmPrec);
+        NCConverter.state.convertedContent = this.inchToMm(fileContent, tokens, mmPrec);
         NCConverter.state.finalUnits = "mm";
         if (NCConverter.Export && typeof NCConverter.Export.createDownloadLink === "function") {
           NCConverter.Export.createDownloadLink("inchToMm");
         }
       } else if (conversionType === "mmToInch") {
-        NCConverter.state.convertedContent = this.mmToInch(NCConverter.state.fileContent, tokens, inchPrec);
+        NCConverter.state.convertedContent = this.mmToInch(fileContent, tokens, inchPrec);
         NCConverter.state.finalUnits = "inches";
         if (NCConverter.Export && typeof NCConverter.Export.createDownloadLink === "function") {
           NCConverter.Export.createDownloadLink("mmToInch");
         }
       } else if (conversionType === "keepUnits") {
         // No unit conversion, just process other options
-        let result = NCConverter.state.fileContent;
+        let result = fileContent;
         if (this.elements.normalizeSpacing && this.elements.normalizeSpacing.checked) {
           result = this.normalizeSpacing(result);
         }
@@ -463,10 +498,10 @@ NCConverter.Conversion = {
       }
       
       // Apply H function mappings to ORIGINAL content, then do unit conversion
-      let contentForConversion = NCConverter.state.fileContent;
+      let contentForConversion = fileContent;
       if (NCConverter.state.hMapping && NCConverter.state.hMapping.length > 0) {
         console.log("Applying H mappings to ORIGINAL content before conversion");
-        contentForConversion = this.applyHMapping(NCConverter.state.fileContent);
+        contentForConversion = this.applyHMapping(fileContent);
       }
       
       // Now re-do the conversion with H-mapped content
@@ -546,6 +581,9 @@ NCConverter.Conversion = {
       if (NCConverter.UIHelpers && typeof NCConverter.UIHelpers.showToast === "function") {
         NCConverter.UIHelpers.showToast("Conversion complete!", "success");
       }
+      
+      // Debug: Log the first 500 characters of the converted content
+      console.log('[DEBUG] Final convertedContent preview:', (NCConverter.state.convertedContent || '').substring(0, 500));
       
       console.log("Conversion completed successfully");
     } catch (error) {

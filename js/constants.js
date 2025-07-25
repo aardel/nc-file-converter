@@ -11,7 +11,7 @@ NCConverter.SETTINGS_KEY = "ncConverterSettings";
 NCConverter.HMAPPING_KEY = "ncHMapping";
 
 // Default settings
-NCConverter.DEFAULT_TOKENS = ["X", "Y", "I", "J", "R", "Radius:", "CylDia:", "GROESSE:"];
+NCConverter.DEFAULT_TOKENS = ["X", "Y", "I", "J", "R", "Radius:", "CylDia:", "GROESSE:", "SIZE:"];
 
 // Default H functions
 NCConverter.DEFAULT_H_FUNCTIONS = {

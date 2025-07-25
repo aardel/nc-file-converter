@@ -77,6 +77,11 @@ NCConverter.TabManager = {
     if (settingsTab && (!settingsTab.innerHTML || settingsTab.innerHTML.trim() === '')) {
       NCConverter.debugLog("Fixing empty Settings tab");
       settingsTab.innerHTML = this.getSettingsTabContent();
+      // Ensure settings event listeners are attached to new DOM
+      if (NCConverter.Settings) {
+        NCConverter.Settings.cacheElements();
+        NCConverter.Settings.setupEventListeners();
+      }
     }
     
     const visualizationTab = document.getElementById('visualization-tab');
@@ -486,6 +491,10 @@ NCConverter.TabManager = {
             <input type="checkbox" id="normalizeSpacing">
             <label for="normalizeSpacing">Normalize spacing between tokens and values</label>
           </div>
+          <div class="checkbox-option">
+            <input type="checkbox" id="autoInchHeader" checked>
+            <label for="autoInchHeader">Auto convert to inch header (insert :P2027=25.4/P674 and G75 X=P2027 Y=P2027 after %1 if missing)</label>
+          </div>
         </div>
       </div>
       
@@ -523,6 +532,7 @@ NCConverter.TabManager = {
               <button class="quick-token-btn btn-sm" data-token="Radius:">Radius:</button>
               <button class="quick-token-btn btn-sm" data-token="CylDia:">CylDia:</button>
               <button class="quick-token-btn btn-sm" data-token="GROESSE:">GROESSE:</button>
+              <button class="quick-token-btn btn-sm" data-token="SIZE:">SIZE:</button>
             </div>
           </div>
           

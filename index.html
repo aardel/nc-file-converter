@@ -34,6 +34,7 @@
         <div class="tab-header" data-tab="hfunctions" tabindex="0" role="tab" aria-selected="false" aria-controls="hfunctions-tab" id="tab-hfunctions">H Functions</div>
         <div class="tab-header" data-tab="settings" tabindex="0" role="tab" aria-selected="false" aria-controls="settings-tab" id="tab-settings">Settings</div>
         <div class="tab-header" data-tab="visualization" tabindex="0" role="tab" aria-selected="false" aria-controls="visualization-tab" id="tab-visualization">Visualization</div>
+        <div class="tab-header" data-tab="import-analyze" tabindex="0" role="tab" aria-selected="false" aria-controls="import-analyze-tab" id="tab-import-analyze">Import/Analyze</div>
       </div>
       
       <!-- Conversion Tab -->
@@ -79,9 +80,6 @@
         <div class="actions" style="margin-top: var(--space-4); display: flex; gap: var(--space-3);">
           <button id="downloadConvertedBtn" disabled>
             <i class="icon">⬇️</i> Download Converted File
-          </button>
-          <button id="exportDxfBtn" disabled>
-            <i class="icon">📐</i> Export as
           </button>
         </div>
       </div>
@@ -174,176 +172,8 @@
         </div>
       </div>
       
-      <!-- Settings Tab -->
-      <div class="tab-content" id="settings-tab" style="display:none;" role="tabpanel" aria-labelledby="tab-settings">
-        <h3>Application Settings</h3>
-        <p>Customize how the converter behaves.</p>
-        
-        <!-- Precision Settings Card -->
-        <div class="card" style="margin-bottom: var(--space-4);">
-          <div class="card-header">
-            <h4 style="margin-bottom: 0;">Precision Settings</h4>
-          </div>
-          <div class="card-body">
-            <p>Define the number of decimals for conversion results.</p>
-            
-            <div class="form-group">
-              <label for="mmPrecision">mm Precision (decimals):</label>
-              <input type="number" id="mmPrecision" min="0" max="6" value="3">
-            </div>
-            
-            <div class="form-group">
-              <label for="inchPrecision">Inch Precision (decimals):</label>
-              <input type="number" id="inchPrecision" min="0" max="6" value="5">
-            </div>
-          </div>
-        </div>
-        
-        <!-- File Formatting Card -->
-        <div class="card" style="margin-bottom: var(--space-4);">
-          <div class="card-header">
-            <h4 style="margin-bottom: 0;">File Formatting</h4>
-          </div>
-          <div class="card-body">
-            <p>Settings affecting file output formatting.</p>
-            
-            <div class="checkbox-option">
-              <input type="checkbox" id="preserveNewlines" checked>
-              <label for="preserveNewlines">Preserve original newline format</label>
-            </div>
-            
-            <div class="checkbox-option">
-              <input type="checkbox" id="normalizeSpacing">
-              <label for="normalizeSpacing">Normalize spacing between tokens and values</label>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Token Management Card -->
-        <div class="card" style="margin-bottom: var(--space-4);">
-          <div class="card-header">
-            <h4 style="margin-bottom: 0;">Conversion Tokens</h4>
-          </div>
-          <div class="card-body">
-            <p>Define which tokens should be converted (coordinates, dimensions, etc.)</p>
-            
-            <!-- Token List with scrollable container -->
-            <div style="border: 1px solid var(--gray-300); border-radius: var(--border-radius-sm); max-height: 200px; overflow-y: auto; margin-bottom: var(--space-3);">
-              <div id="tokenList" style="padding: var(--space-2); min-height: 50px;"></div>
-            </div>
-            
-            <!-- Add Token Form -->
-            <div style="display: flex; gap: var(--space-2); margin-bottom: var(--space-3);">
-              <input type="text" id="customToken" placeholder="Add custom token (e.g. X, Y, Z, I, J, R)" 
-                     style="flex-grow: 1;">
-              <button id="addTokenBtn">Add Token</button>
-            </div>
-            
-            <!-- Predefined Common Tokens -->
-            <div style="margin-bottom: var(--space-3);">
-              <h5>Common Tokens:</h5>
-              <div style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2);">
-                <button class="quick-token-btn btn-sm" data-token="X">X</button>
-                <button class="quick-token-btn btn-sm" data-token="Y">Y</button>
-                <button class="quick-token-btn btn-sm" data-token="Z">Z</button>
-                <button class="quick-token-btn btn-sm" data-token="I">I</button>
-                <button class="quick-token-btn btn-sm" data-token="J">J</button>
-                <button class="quick-token-btn btn-sm" data-token="K">K</button>
-                <button class="quick-token-btn btn-sm" data-token="R">R</button>
-                <button class="quick-token-btn btn-sm" data-token="Radius:">Radius:</button>
-                <button class="quick-token-btn btn-sm" data-token="CylDia:">CylDia:</button>
-                <button class="quick-token-btn btn-sm" data-token="GROESSE:">GROESSE:</button>
-              </div>
-            </div>
-            
-            <!-- Reset Tokens Button -->
-            <button id="resetTokensBtn" class="btn-secondary">Reset to Default Tokens</button>
-          </div>
-        </div>
-        
-        <!-- H Function Definitions Management -->
-        <div class="card" style="margin-bottom: var(--space-4);">
-          <div class="card-header">
-            <h4 style="margin-bottom: 0;">H Function Definitions</h4>
-          </div>
-          <div class="card-body">
-            <p>Manage the H function definitions used throughout the application.</p>
-            
-            <!-- H Functions List -->
-            <div style="border: 1px solid var(--gray-300); border-radius: var(--border-radius-sm); max-height: 300px; overflow-y: auto; margin-bottom: var(--space-3);">
-              <div id="hFunctionsList" style="padding: var(--space-2); min-height: 50px;"></div>
-            </div>
-            
-            <!-- Add H Function Form -->
-            <div style="margin-bottom: var(--space-3);">
-              <div class="form-group">
-                <label for="newHNumber">H Function Number:</label>
-                <div style="display: flex; gap: var(--space-2); align-items: center;">
-                  <span style="font-weight: 500;">H</span>
-                  <input type="number" id="newHNumber" min="1" style="flex-grow: 1;" placeholder="Enter H number (e.g. 1, 2, 3)">
-                </div>
-              </div>
-              
-              <div class="form-group">
-                <label for="newHName">Function Name:</label>
-                <input type="text" id="newHName" placeholder="Enter function description (e.g. 1 point, 2 points)">
-              </div>
-              
-              <button id="addHFunctionBtn" class="btn">Add H Function</button>
-            </div>
-            
-            <!-- Edit Mode Section (hidden by default) -->
-            <div id="editHFunctionSection" style="display: none; margin-bottom: var(--space-3); padding: var(--space-3); background-color: var(--gray-100); border-radius: var(--border-radius-sm);">
-              <h5>Edit H Function</h5>
-              
-              <div class="form-group">
-                <label for="editHNumber">H Function Number:</label>
-                <div style="display: flex; gap: var(--space-2); align-items: center;">
-                  <span style="font-weight: 500;">H</span>
-                  <input type="number" id="editHNumber" min="1" style="flex-grow: 1;" disabled>
-                </div>
-              </div>
-              
-              <div class="form-group">
-                <label for="editHName">Function Name:</label>
-                <input type="text" id="editHName">
-              </div>
-              
-              <div style="display: flex; gap: var(--space-2);">
-                <button id="saveHFunctionBtn" class="btn">Save Changes</button>
-                <button id="cancelEditHFunctionBtn" class="btn-secondary">Cancel</button>
-              </div>
-            </div>
-            
-            <button id="resetHFunctionsBtn" class="btn-secondary">Reset to Default H Functions</button>
-          </div>
-        </div>
-        
-        <!-- Updates Card -->
-        <div class="card" style="margin-bottom: var(--space-4);">
-          <div class="card-header">
-            <h4 style="margin-bottom: 0;">Updates</h4>
-          </div>
-          <div class="card-body">
-            <p>Current Version: <span id="currentVersion"></span></p>
-            <p>Last checked: <span id="lastUpdateCheck">Never</span></p>
-            <button id="checkUpdateBtn" class="btn">Check for Updates</button>
-            <div id="updateStatus" style="margin-top: var(--space-2);"></div>
-          </div>
-        </div>
-        
-        <!-- Reset Settings Card -->
-        <div class="card">
-          <div class="card-header">
-            <h4 style="margin-bottom: 0;">Reset Settings</h4>
-          </div>
-          <div class="card-body">
-            <p>Click below to reset all settings (except H mappings and dark mode) to default values.</p>
-            <button id="resetSettingsBtn" class="btn-danger">Reset to Default Settings</button>
-          </div>
-        </div>
-      </div>
-      
+      <!-- Settings Tab (empty, for JS to populate) -->
+      <div class="tab-content" id="settings-tab" style="display:none;" role="tabpanel" aria-labelledby="tab-settings"></div>
      <!-- Visualization Tab -->
 <div class="tab-content" id="visualization-tab" style="display:none;" role="tabpanel" aria-labelledby="tab-visualization">
   <h3>NC File Visualization</h3>
@@ -361,6 +191,35 @@
     </div>
   </div>
 </div>
+     <!-- Import/Analyze Tab -->
+      <div class="tab-content" id="import-analyze-tab" style="display:none;" role="tabpanel" aria-labelledby="tab-import-analyze">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-3);">
+          <div>
+            <h3 style="margin-bottom: var(--space-1);">Import & Analyze DXF/DWG</h3>
+            <p style="margin-top: 0; color: #666; font-size: 14px;">Import a DXF or DWG file to analyze its entity types and visualize its contents.</p>
+          </div>
+          <div style="min-width: 200px; margin-left: var(--space-4);">
+            <div class="file-area" id="dxfFileArea" tabindex="0" role="button" aria-label="Select or drop DXF/DWG file for analysis" style="margin-bottom: var(--space-2); padding: var(--space-2); min-height: 80px;">
+              <div class="file-icon" aria-hidden="true" style="font-size: 20px;">📐</div>
+              <p style="font-size: 12px; margin: 5px 0;">Click or drop DXF/DWG here</p>
+              <input type="file" id="importReportFileInput" accept=".dxf,.dwg" style="display:none;" aria-hidden="true">
+            </div>
+            
+            <div class="file-info" id="dxfFileInfo" style="display:none;">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
+                <span class="file-icon" style="font-size: 16px;">📐</span>
+                <div>
+                  <div class="file-name" id="dxfFileName" style="font-weight: 500; color: #333;"></div>
+                  <div class="file-size" id="dxfFileSize" style="color: #666;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="importReportContainer"></div>
+        <div id="svgDxfViewer" style="width:100%;height:600px;border:1.5px solid #bbb;background:#fff;margin-top:12px;"></div>
+      </div>
      </div>
     </div>
   </main>
@@ -434,5 +293,8 @@
   <script src="js/batch-processor.js"></script>
   <script src="js/nc-fix-script.js"></script>
   <script src="js/app-improvements.js"></script>
+  <script src="js/dxf-parser-browser.js"></script>
+  <script src="js/import-report.js"></script>
+  <script src="js/import-analyze-logic.js"></script>
 </body>
 </html>

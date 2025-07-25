@@ -47,7 +47,8 @@ NCConverter.Settings = {
       preserveNewlines: document.getElementById("preserveNewlines"),
       normalizeSpacing: document.getElementById("normalizeSpacing"),
       debugModeToggle: document.getElementById("debugModeToggle"),
-      conversionTypes: document.querySelectorAll('input[name="conversionType"]')
+      conversionTypes: document.querySelectorAll('input[name="conversionType"]'),
+      autoInchHeader: document.getElementById("autoInchHeader")
     };
   },
   
@@ -56,7 +57,7 @@ NCConverter.Settings = {
    */
   setupEventListeners: function() {
     const { resetSettingsBtn, mmPrecision, inchPrecision, 
-           preserveNewlines, normalizeSpacing, debugModeToggle, conversionTypes } = this.elements;
+           preserveNewlines, normalizeSpacing, debugModeToggle, conversionTypes, autoInchHeader } = this.elements;
     
     // Reset button
     if (resetSettingsBtn) {
@@ -84,6 +85,13 @@ NCConverter.Settings = {
       debugModeToggle.addEventListener("change", this.handleSettingChange.bind(this));
     }
     
+    if (autoInchHeader) {
+      autoInchHeader.addEventListener("change", (e) => {
+        console.log('[DEBUG] Auto convert to inch header checkbox toggled:', e.target.checked);
+        this.handleSettingChange();
+      });
+    }
+    
     // Radio button listeners
     if (conversionTypes) {
       conversionTypes.forEach(el =>
@@ -98,15 +106,20 @@ NCConverter.Settings = {
    */
   loadSettings: function() {
     const stored = localStorage.getItem(NCConverter.SETTINGS_KEY);
+    let settings;
     if (stored) {
       try { 
-        return JSON.parse(stored); 
+        settings = JSON.parse(stored); 
       } catch (e) { 
         console.error("Error parsing stored settings:", e);
-        return this.getDefaultSettings(); 
+        settings = this.getDefaultSettings(); 
       }
+    } else {
+      settings = this.getDefaultSettings();
     }
-    return this.getDefaultSettings();
+    // FORCE: always set autoInchHeader to true
+    settings.autoInchHeader = true;
+    return settings;
   },
   
   /**
@@ -124,7 +137,8 @@ NCConverter.Settings = {
       autoRedetectH: true,
       debugMode: false, // Browser debug console logging
       tokens: [...NCConverter.DEFAULT_TOKENS],
-      hFunctions: {...NCConverter.DEFAULT_H_FUNCTIONS}
+      hFunctions: {...NCConverter.DEFAULT_H_FUNCTIONS},
+      autoInchHeader: true
     };
   },
   
@@ -147,7 +161,7 @@ NCConverter.Settings = {
   updateStoredSettings: function() {
     const settings = NCConverter.state.settings;
     const { mmPrecision, inchPrecision, preserveNewlines, 
-           normalizeSpacing } = this.elements;
+           normalizeSpacing, autoInchHeader } = this.elements;
     
     // Conversion settings
     const conversionTypeElement = document.querySelector('input[name="conversionType"]:checked');
@@ -171,6 +185,10 @@ NCConverter.Settings = {
     
     if (normalizeSpacing) {
       settings.normalizeSpacing = normalizeSpacing.checked;
+    }
+    
+    if (autoInchHeader) {
+      settings.autoInchHeader = autoInchHeader.checked;
     }
     
     // Auto-redetect setting
@@ -231,7 +249,7 @@ NCConverter.Settings = {
   applySettings: function() {
     const settings = NCConverter.state.settings;
     const { mmPrecision, inchPrecision, preserveNewlines, 
-           normalizeSpacing } = this.elements;
+           normalizeSpacing, autoInchHeader } = this.elements;
     
     // Apply conversion type
     if (settings.conversionType) {
@@ -255,6 +273,10 @@ NCConverter.Settings = {
     
     if (typeof settings.normalizeSpacing === "boolean" && normalizeSpacing) {
       normalizeSpacing.checked = settings.normalizeSpacing;
+    }
+    
+    if (this.elements.autoInchHeader && typeof settings.autoInchHeader === "boolean") {
+      this.elements.autoInchHeader.checked = settings.autoInchHeader;
     }
     
     // Apply debug mode setting
