@@ -461,10 +461,18 @@ NCConverter.Visualization = {
         }
       }
       
+      // Check for arc commands (G02/G03) and handle them specially
+      const g02Match = line.match(/G\s*0?2\b/i); // Clockwise arc
+      const g03Match = line.match(/G\s*0?3\b/i); // Counterclockwise arc
+      
       // Extract coordinates
       const xMatch = line.match(/X\s*(-?\d+\.?\d*)/i);
       const yMatch = line.match(/Y\s*(-?\d+\.?\d*)/i);
       const zMatch = line.match(/Z\s*(-?\d+\.?\d*)/i);
+      
+      // Extract I and J parameters for arcs
+      const iMatch = line.match(/I\s*(-?\d+\.?\d*)/i);
+      const jMatch = line.match(/J\s*(-?\d+\.?\d*)/i);
       
       // Extract H functions
       const hMatch = line.match(/H\s*(\d+)/i);
@@ -474,8 +482,83 @@ NCConverter.Visualization = {
         currentPath.hFunction = currentH;
       }
       
-      // Update position and add to path if coordinates found
-      if (xMatch || yMatch || zMatch) {
+      // Handle arc commands (G02/G03)
+      if ((g02Match || g03Match) && (xMatch || yMatch) && (iMatch || jMatch)) {
+        const isClockwise = !!g02Match;
+        
+        // Calculate end position
+        let endX = currentX;
+        let endY = currentY;
+        let endZ = currentZ;
+        
+        if (xMatch) {
+          const newX = parseFloat(xMatch[1]);
+          endX = isAbsolute ? newX : currentX + newX;
+        }
+        
+        if (yMatch) {
+          const newY = parseFloat(yMatch[1]);
+          endY = isAbsolute ? newY : currentY + newY;
+        }
+        
+        if (zMatch) {
+          const newZ = parseFloat(zMatch[1]);
+          endZ = isAbsolute ? newZ : currentZ + newZ;
+        }
+        
+        // Get I and J offsets (relative to current position)
+        const iOffset = iMatch ? parseFloat(iMatch[1]) : 0;
+        const jOffset = jMatch ? parseFloat(jMatch[1]) : 0;
+        
+        // Convert to display units
+        let scaledCurrentX = currentX;
+        let scaledCurrentY = currentY;
+        let scaledEndX = endX;
+        let scaledEndY = endY;
+        let scaledI = iOffset;
+        let scaledJ = jOffset;
+        
+        if (!isMetric) {
+          scaledCurrentX *= 25.4;
+          scaledCurrentY *= 25.4;
+          scaledEndX *= 25.4;
+          scaledEndY *= 25.4;
+          scaledI *= 25.4;
+          scaledJ *= 25.4;
+        }
+        
+        NCConverter.debugLog(`🌀 ${isClockwise ? 'G02 (CW)' : 'G03 (CCW)'} Arc from X${scaledCurrentX.toFixed(2)},Y${scaledCurrentY.toFixed(2)} to X${scaledEndX.toFixed(2)},Y${scaledEndY.toFixed(2)} I${scaledI.toFixed(2)} J${scaledJ.toFixed(2)}`);
+        
+        // Only process arc when drawing is active
+        if (drawingActive) {
+          // Generate arc points
+          const arcPoints = this.generateArcPoints(
+            scaledCurrentX, scaledCurrentY,
+            scaledEndX, scaledEndY,
+            scaledI, scaledJ,
+            isClockwise
+          );
+          
+          // Add arc points to current path
+          arcPoints.forEach(point => {
+            currentPath.points.push({ x: point.x, y: point.y, z: endZ });
+            this.updateBounds(point.x, point.y);
+          });
+          
+          NCConverter.debugLog(`➕ Arc with ${arcPoints.length} points added to path`);
+        }
+        
+        // Update current position to end position
+        currentX = endX;
+        currentY = endY;
+        currentZ = endZ;
+        
+        // Update bounds for end point
+        this.updateBounds(scaledEndX, scaledEndY);
+        
+      } else if (xMatch || yMatch || zMatch) {
+        // Handle linear movement (existing logic)
+        
         // Update position based on new coordinates
         if (xMatch) {
           const newX = parseFloat(xMatch[1]);
@@ -501,7 +584,7 @@ NCConverter.Visualization = {
           scaledY *= 25.4;
         }
         
-        NCConverter.debugLog(`📍 Move to X${scaledX.toFixed(2)}, Y${scaledY.toFixed(2)} - Drawing: ${drawingActive ? 'ON' : 'OFF'} - H: ${currentH || 'none'}`);
+        NCConverter.debugLog(`📍 Linear move to X${scaledX.toFixed(2)}, Y${scaledY.toFixed(2)} - Drawing: ${drawingActive ? 'ON' : 'OFF'} - H: ${currentH || 'none'}`);
         
         // Only add points when drawing is active (between M14 and M15)
         if (drawingActive) {
@@ -547,6 +630,82 @@ NCConverter.Visualization = {
       bounds.minY = Math.min(bounds.minY, y);
       bounds.maxY = Math.max(bounds.maxY, y);
     }
+  },
+  
+  /**
+   * Generate points along an arc defined by start, end, and center offsets
+   * @param {number} startX - Starting X coordinate
+   * @param {number} startY - Starting Y coordinate  
+   * @param {number} endX - Ending X coordinate
+   * @param {number} endY - Ending Y coordinate
+   * @param {number} iOffset - I offset (X offset to arc center from start)
+   * @param {number} jOffset - J offset (Y offset to arc center from start)
+   * @param {boolean} isClockwise - True for G02 (clockwise), false for G03 (counterclockwise)
+   * @return {Array} Array of {x, y} points along the arc
+   */
+  generateArcPoints: function(startX, startY, endX, endY, iOffset, jOffset, isClockwise) {
+    // Calculate arc center coordinates
+    const centerX = startX + iOffset;
+    const centerY = startY + jOffset;
+    
+    // Calculate radius from start point to center
+    const radius = Math.sqrt(iOffset * iOffset + jOffset * jOffset);
+    
+    // Calculate start and end angles
+    const startAngle = Math.atan2(startY - centerY, startX - centerX);
+    const endAngle = Math.atan2(endY - centerY, endX - centerX);
+    
+    // Normalize angles to [0, 2π]
+    let normalizedStartAngle = startAngle < 0 ? startAngle + 2 * Math.PI : startAngle;
+    let normalizedEndAngle = endAngle < 0 ? endAngle + 2 * Math.PI : endAngle;
+    
+    // Calculate angular sweep
+    let angleSweep;
+    if (isClockwise) {
+      // For clockwise arcs (G02)
+      if (normalizedEndAngle > normalizedStartAngle) {
+        angleSweep = normalizedEndAngle - normalizedStartAngle - 2 * Math.PI;
+      } else {
+        angleSweep = normalizedEndAngle - normalizedStartAngle;
+      }
+    } else {
+      // For counterclockwise arcs (G03)
+      if (normalizedEndAngle < normalizedStartAngle) {
+        angleSweep = normalizedEndAngle - normalizedStartAngle + 2 * Math.PI;
+      } else {
+        angleSweep = normalizedEndAngle - normalizedStartAngle;
+      }
+    }
+    
+    // Calculate number of segments based on arc length for smooth curves
+    const arcLength = Math.abs(angleSweep * radius);
+    const segmentLength = 1.0; // mm per segment for smooth curves
+    const numSegments = Math.max(4, Math.ceil(arcLength / segmentLength));
+    
+    NCConverter.debugLog(`🌀 Arc: center(${centerX.toFixed(2)}, ${centerY.toFixed(2)}) radius=${radius.toFixed(2)} sweep=${(angleSweep * 180 / Math.PI).toFixed(1)}° segments=${numSegments}`);
+    
+    // Generate points along the arc
+    const points = [];
+    
+    for (let i = 0; i <= numSegments; i++) {
+      const t = i / numSegments;
+      const currentAngle = normalizedStartAngle + angleSweep * t;
+      
+      const x = centerX + radius * Math.cos(currentAngle);
+      const y = centerY + radius * Math.sin(currentAngle);
+      
+      // Skip the first point since it's the same as current position
+      if (i > 0) {
+        points.push({ x: x, y: y });
+      }
+    }
+    
+    // Ensure the end point is exactly where it should be
+    if (points.length > 0) {
+      points[points.length - 1] = { x: endX, y: endY };
+    }
+    
+    return points;
   },
   
   /**
