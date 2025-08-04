@@ -530,6 +530,85 @@ NCConverter.TabManager = {
         </div>
       </div>
       
+      <!-- H Function Settings Card -->
+      <div class="card" style="margin-bottom: var(--space-4);">
+        <div class="card-header">
+          <h4 style="margin-bottom: 0;">H Function Settings</h4>
+        </div>
+        <div class="card-body">
+          <p>Define H function names and numbers. These will be used for function mapping and display in visualizations.</p>
+          
+          <!-- H Function Definitions List -->
+          <div style="margin-bottom: var(--space-3);">
+            <h5>Defined H Functions:</h5>
+            <div style="border: 1px solid var(--gray-300); border-radius: var(--border-radius-sm); max-height: 200px; overflow-y: auto; margin-bottom: var(--space-3);">
+              <div id="hFunctionsList" style="padding: var(--space-2); min-height: 80px;">
+                <p style="font-style: italic; color: var(--gray-500); text-align: center; padding: var(--space-2); margin: 0;">
+                  No H functions defined. Add H functions below.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Add New H Function -->
+          <div style="margin-bottom: var(--space-3);">
+            <h5>Add New H Function:</h5>
+            <div style="display: flex; gap: var(--space-2); align-items: end; margin-bottom: var(--space-2);">
+              <div style="flex: 0 0 100px;">
+                <label for="newHNumber" style="display: block; font-size: 14px; margin-bottom: 4px;">H Number:</label>
+                <input type="number" id="newHNumber" placeholder="1" min="1" max="999" 
+                       style="width: 100%; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px;">
+              </div>
+              <div style="flex: 1;">
+                <label for="newHName" style="display: block; font-size: 14px; margin-bottom: 4px;">Function Name:</label>
+                <input type="text" id="newHName" placeholder="Enter function name (e.g., Drill, Tap, Chamfer)" 
+                       style="width: 100%; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px;">
+              </div>
+              <button id="addHFunctionBtn" class="btn" style="margin-bottom: 0; height: 36px;">Add H Function</button>
+            </div>
+          </div>
+          
+          <!-- Edit H Function Section (hidden by default) -->
+          <div id="editHFunctionSection" style="display: none; margin-bottom: var(--space-3); padding: var(--space-3); background-color: var(--gray-50); border: 1px solid var(--gray-300); border-radius: var(--border-radius-sm);">
+            <h5>Edit H Function:</h5>
+            <div style="display: flex; gap: var(--space-2); align-items: end; margin-bottom: var(--space-2);">
+              <div style="flex: 0 0 100px;">
+                <label for="editHNumber" style="display: block; font-size: 14px; margin-bottom: 4px;">H Number:</label>
+                <input type="number" id="editHNumber" min="1" max="999" 
+                       style="width: 100%; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px;">
+              </div>
+              <div style="flex: 1;">
+                <label for="editHName" style="display: block; font-size: 14px; margin-bottom: 4px;">Function Name:</label>
+                <input type="text" id="editHName" 
+                       style="width: 100%; padding: 6px; border: 1px solid var(--gray-300); border-radius: 4px;">
+              </div>
+              <button id="saveHFunctionBtn" class="btn" style="margin-bottom: 0; height: 36px;">Save Changes</button>
+              <button id="cancelEditHFunctionBtn" class="btn-secondary" style="margin-bottom: 0; height: 36px;">Cancel</button>
+            </div>
+          </div>
+          
+          <!-- H Function Management Actions -->
+          <div style="display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-3);">
+            <button id="resetHFunctionsBtn" class="btn-secondary">Reset to Default H Functions</button>
+            <button onclick="NCConverter.TabManager.selectTab('hfunctions'); return false;" class="btn" style="background-color: var(--primary-color); color: white;">View H Function Mapping →</button>
+          </div>
+          
+          <!-- Template for H Function Definition Items (hidden) -->
+          <template id="hFunctionDefItemTemplate">
+            <div class="h-function-item" style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-2); border-bottom: 1px solid var(--gray-200);">
+              <div style="display: flex; align-items: center; gap: var(--space-2);">
+                <strong style="color: var(--primary-color); font-family: monospace;">H<span class="h-number"></span></strong>
+                <span class="h-name"></span>
+              </div>
+              <div style="display: flex; gap: var(--space-1);">
+                <button class="edit-h-btn btn-sm" title="Edit this H function">✏️ Edit</button>
+                <button class="delete-h-btn btn-sm btn-danger" title="Delete this H function">🗑️ Delete</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
       <!-- Token Management Card -->
       <div class="card" style="margin-bottom: var(--space-4);">
         <div class="card-header">

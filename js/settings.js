@@ -52,7 +52,19 @@ NCConverter.Settings = {
       customSavePath: document.getElementById("customSavePath"),
       browseSavePathBtn: document.getElementById("browseSavePathBtn"),
       testSavePathBtn: document.getElementById("testSavePathBtn"),
-      savePathStatus: document.getElementById("savePathStatus")
+      savePathStatus: document.getElementById("savePathStatus"),
+      // H Function Settings elements
+      hFunctionsList: document.getElementById("hFunctionsList"),
+      newHNumber: document.getElementById("newHNumber"),
+      newHName: document.getElementById("newHName"),
+      addHFunctionBtn: document.getElementById("addHFunctionBtn"),
+      editHFunctionSection: document.getElementById("editHFunctionSection"),
+      editHNumber: document.getElementById("editHNumber"),
+      editHName: document.getElementById("editHName"),
+      saveHFunctionBtn: document.getElementById("saveHFunctionBtn"),
+      cancelEditHFunctionBtn: document.getElementById("cancelEditHFunctionBtn"),
+      resetHFunctionsBtn: document.getElementById("resetHFunctionsBtn"),
+      hFunctionDefItemTemplate: document.getElementById("hFunctionDefItemTemplate")
     };
   },
   
@@ -111,6 +123,37 @@ NCConverter.Settings = {
       testSavePathBtn.addEventListener("click", this.testSavePath.bind(this));
     }
     
+    // H Function Settings event listeners
+    const addHFunctionBtn = this.elements.addHFunctionBtn;
+    if (addHFunctionBtn) {
+      addHFunctionBtn.addEventListener("click", this.addNewHFunction.bind(this));
+    }
+    
+    const newHName = this.elements.newHName;
+    if (newHName) {
+      newHName.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.addNewHFunction();
+        }
+      });
+    }
+    
+    const saveHFunctionBtn = this.elements.saveHFunctionBtn;
+    if (saveHFunctionBtn) {
+      saveHFunctionBtn.addEventListener("click", this.saveHFunctionEdit.bind(this));
+    }
+    
+    const cancelEditHFunctionBtn = this.elements.cancelEditHFunctionBtn;
+    if (cancelEditHFunctionBtn) {
+      cancelEditHFunctionBtn.addEventListener("click", this.exitHFunctionEditMode.bind(this));
+    }
+    
+    const resetHFunctionsBtn = this.elements.resetHFunctionsBtn;
+    if (resetHFunctionsBtn) {
+      resetHFunctionsBtn.addEventListener("click", this.resetHFunctions.bind(this));
+    }
+    
     // Radio button listeners
     if (conversionTypes) {
       conversionTypes.forEach(el =>
@@ -138,9 +181,50 @@ NCConverter.Settings = {
     }
     // FORCE: always set autoInchHeader to true
     settings.autoInchHeader = true;
+    
+    // Migrate old H function format (H1, H2) to new format (1, 2)
+    settings = this.migrateHFunctionFormat(settings);
+    
     return settings;
   },
   
+  /**
+   * Migrate old H function format to new format
+   * Converts keys like "H1", "H2" to "1", "2"
+   * @param {Object} settings - Settings object to migrate
+   * @return {Object} Migrated settings object
+   */
+  migrateHFunctionFormat: function(settings) {
+    if (!settings.hFunctions) {
+      return settings;
+    }
+    
+    let needsMigration = false;
+    const migratedHFunctions = {};
+    
+    // Check if any keys start with "H" (old format)
+    Object.keys(settings.hFunctions).forEach(key => {
+      if (key.startsWith('H') && key.length > 1) {
+        // Convert "H1" to "1", "H10" to "10", etc.
+        const newKey = key.substring(1);
+        migratedHFunctions[newKey] = settings.hFunctions[key];
+        needsMigration = true;
+      } else {
+        // Keep existing format
+        migratedHFunctions[key] = settings.hFunctions[key];
+      }
+    });
+    
+    if (needsMigration) {
+      console.log('Migrating H function format from H1,H2... to 1,2...');
+      settings.hFunctions = migratedHFunctions;
+      // Save the migrated settings
+      this.saveSettings(settings);
+    }
+    
+    return settings;
+  },
+
   /**
    * Get default settings object
    * @return {Object} Default settings
@@ -336,6 +420,9 @@ NCConverter.Settings = {
       NCConverter.HFunctions.updateHMappingUI();
     }
     
+    // Initialize H function list in settings
+    this.initializeHFunctionsList();
+    
     // Set auto-redetect checkbox if it exists
     const autoRedetectCheckbox = document.getElementById("autoRedetectH");
     if (autoRedetectCheckbox && typeof settings.autoRedetectH === "boolean") {
@@ -348,6 +435,9 @@ NCConverter.Settings = {
    */
   handleSettingChange: function() {
     this.updateStoredSettings();
+    
+    // Update H function list
+    this.initializeHFunctionsList();
     
     // Update save button state when save path changes
     if (NCConverter.FileSaver && typeof NCConverter.FileSaver.updateSaveButton === "function") {
@@ -573,5 +663,242 @@ NCConverter.Settings = {
     }
     
     statusElement.style.border = "1px solid";
+  },
+  
+  /**
+   * Initialize the H functions list from settings
+   */
+  initializeHFunctionsList: function() {
+    const { hFunctionsList } = this.elements;
+    if (!hFunctionsList) return;
+    
+    const settings = this.loadSettings();
+    hFunctionsList.innerHTML = "";
+    
+    if (settings.hFunctions && Object.keys(settings.hFunctions).length > 0) {
+      Object.entries(settings.hFunctions).forEach(([hNumber, hName]) => {
+        this.addHFunctionToList(hNumber, hName);
+      });
+    } else {
+      hFunctionsList.innerHTML = `
+        <p style="font-style: italic; color: var(--gray-500); text-align: center; padding: var(--space-2); margin: 0;">
+          No H functions defined. Add H functions below.
+        </p>
+      `;
+    }
+  },
+  
+  /**
+   * Add an H function to the display list
+   */
+  addHFunctionToList: function(hNumber, hName) {
+    const { hFunctionsList, hFunctionDefItemTemplate } = this.elements;
+    if (!hFunctionsList || !hFunctionDefItemTemplate) return;
+    
+    // Clone the template
+    const template = hFunctionDefItemTemplate.content.cloneNode(true);
+    const item = template.querySelector('.h-function-item');
+    
+    // Set the data
+    template.querySelector('.h-number').textContent = hNumber;
+    template.querySelector('.h-name').textContent = hName;
+    
+    // Set up event handlers
+    const editBtn = template.querySelector('.edit-h-btn');
+    const deleteBtn = template.querySelector('.delete-h-btn');
+    
+    editBtn.onclick = () => this.editHFunction(hNumber, hName);
+    deleteBtn.onclick = () => this.deleteHFunction(hNumber);
+    
+    // Add to list
+    hFunctionsList.appendChild(template);
+  },
+  
+  /**
+   * Add a new H function
+   */
+  addNewHFunction: function() {
+    const { newHNumber, newHName } = this.elements;
+    if (!newHNumber || !newHName) return;
+    
+    const hNumber = newHNumber.value.trim();
+    const hName = newHName.value.trim();
+    
+    if (!hNumber || !hName) {
+      this.showToast('Please enter both H number and function name', 'error');
+      return;
+    }
+    
+    // Validate H number
+    if (!/^\d+$/.test(hNumber) || parseInt(hNumber) < 1 || parseInt(hNumber) > 999) {
+      this.showToast('H number must be between 1 and 999', 'error');
+      return;
+    }
+    
+    // Check if H number already exists
+    const settings = this.loadSettings();
+    if (settings.hFunctions && settings.hFunctions[hNumber]) {
+      this.showToast(`H${hNumber} already exists. Use edit to modify it.`, 'error');
+      return;
+    }
+    
+    // Add to settings
+    if (!settings.hFunctions) {
+      settings.hFunctions = {};
+    }
+    settings.hFunctions[hNumber] = hName;
+    this.saveSettings(settings);
+    
+    // Clear inputs
+    newHNumber.value = '';
+    newHName.value = '';
+    
+    // Refresh the list
+    this.initializeHFunctionsList();
+    
+    // Update H function mappings if available
+    if (NCConverter.HFunctions && typeof NCConverter.HFunctions.updateHMappingUI === "function") {
+      NCConverter.HFunctions.updateHMappingUI();
+    }
+    
+    this.showToast(`H${hNumber} (${hName}) added successfully`, 'success');
+  },
+  
+  /**
+   * Edit an H function
+   */
+  editHFunction: function(hNumber, hName) {
+    const { editHFunctionSection, editHNumber, editHName } = this.elements;
+    if (!editHFunctionSection || !editHNumber || !editHName) return;
+    
+    // Store the original number for editing
+    this.editingHNumber = hNumber;
+    
+    // Populate edit fields
+    editHNumber.value = hNumber;
+    editHName.value = hName;
+    
+    // Show edit section
+    editHFunctionSection.style.display = 'block';
+    
+    // Focus on name field
+    editHName.focus();
+  },
+  
+  /**
+   * Save H function edit
+   */
+  saveHFunctionEdit: function() {
+    const { editHNumber, editHName } = this.elements;
+    if (!editHNumber || !editHName || !this.editingHNumber) return;
+    
+    const newHNumber = editHNumber.value.trim();
+    const newHName = editHName.value.trim();
+    
+    if (!newHNumber || !newHName) {
+      this.showToast('Please enter both H number and function name', 'error');
+      return;
+    }
+    
+    // Validate H number
+    if (!/^\d+$/.test(newHNumber) || parseInt(newHNumber) < 1 || parseInt(newHNumber) > 999) {
+      this.showToast('H number must be between 1 and 999', 'error');
+      return;
+    }
+    
+    const settings = this.loadSettings();
+    if (!settings.hFunctions) {
+      settings.hFunctions = {};
+    }
+    
+    // Check if changing to an existing number (and it's not the same)
+    if (newHNumber !== this.editingHNumber && settings.hFunctions[newHNumber]) {
+      this.showToast(`H${newHNumber} already exists. Choose a different number.`, 'error');
+      return;
+    }
+    
+    // Remove old entry if number changed
+    if (newHNumber !== this.editingHNumber) {
+      delete settings.hFunctions[this.editingHNumber];
+    }
+    
+    // Add/update the H function
+    settings.hFunctions[newHNumber] = newHName;
+    this.saveSettings(settings);
+    
+    // Exit edit mode
+    this.exitHFunctionEditMode();
+    
+    // Refresh the list
+    this.initializeHFunctionsList();
+    
+    // Update H function mappings if available
+    if (NCConverter.HFunctions && typeof NCConverter.HFunctions.updateHMappingUI === "function") {
+      NCConverter.HFunctions.updateHMappingUI();
+    }
+    
+    this.showToast(`H${newHNumber} (${newHName}) updated successfully`, 'success');
+  },
+  
+  /**
+   * Exit H function edit mode
+   */
+  exitHFunctionEditMode: function() {
+    const { editHFunctionSection } = this.elements;
+    if (!editHFunctionSection) return;
+    
+    editHFunctionSection.style.display = 'none';
+    this.editingHNumber = null;
+  },
+  
+  /**
+   * Delete an H function
+   */
+  deleteHFunction: function(hNumber) {
+    if (!confirm(`Are you sure you want to delete H${hNumber}? This cannot be undone.`)) {
+      return;
+    }
+    
+    const settings = this.loadSettings();
+    if (settings.hFunctions && settings.hFunctions[hNumber]) {
+      delete settings.hFunctions[hNumber];
+      this.saveSettings(settings);
+      
+      // Refresh the list
+      this.initializeHFunctionsList();
+      
+      // Update H function mappings if available
+      if (NCConverter.HFunctions && typeof NCConverter.HFunctions.updateHMappingUI === "function") {
+        NCConverter.HFunctions.updateHMappingUI();
+      }
+      
+      this.showToast(`H${hNumber} deleted successfully`, 'success');
+    }
+  },
+  
+  /**
+   * Reset H functions to defaults
+   */
+  resetHFunctions: function() {
+    if (!confirm('Are you sure you want to reset all H functions to default values? This will erase all custom H functions.')) {
+      return;
+    }
+    
+    const settings = this.loadSettings();
+    settings.hFunctions = {...NCConverter.DEFAULT_H_FUNCTIONS};
+    this.saveSettings(settings);
+    
+    // Exit edit mode if active
+    this.exitHFunctionEditMode();
+    
+    // Refresh the list
+    this.initializeHFunctionsList();
+    
+    // Update H function mappings if available
+    if (NCConverter.HFunctions && typeof NCConverter.HFunctions.updateHMappingUI === "function") {
+      NCConverter.HFunctions.updateHMappingUI();
+    }
+    
+    this.showToast('H functions reset to defaults', 'success');
   }
 };
