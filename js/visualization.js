@@ -465,14 +465,14 @@ NCConverter.Visualization = {
       const g02Match = line.match(/G\s*0?2\b/i); // Clockwise arc
       const g03Match = line.match(/G\s*0?3\b/i); // Counterclockwise arc
       
-      // Extract coordinates
-      const xMatch = line.match(/X\s*(-?\d+\.?\d*)/i);
-      const yMatch = line.match(/Y\s*(-?\d+\.?\d*)/i);
-      const zMatch = line.match(/Z\s*(-?\d+\.?\d*)/i);
+      // Extract coordinates - Updated to handle decimal numbers starting with dot
+      const xMatch = line.match(/X\s*(-?(?:\d*\.\d+|\d+))/i);
+      const yMatch = line.match(/Y\s*(-?(?:\d*\.\d+|\d+))/i);
+      const zMatch = line.match(/Z\s*(-?(?:\d*\.\d+|\d+))/i);
       
-      // Extract I and J parameters for arcs
-      const iMatch = line.match(/I\s*(-?\d+\.?\d*)/i);
-      const jMatch = line.match(/J\s*(-?\d+\.?\d*)/i);
+      // Extract I and J parameters for arcs - Updated to handle decimal numbers starting with dot
+      const iMatch = line.match(/I\s*(-?(?:\d*\.\d+|\d+))/i);
+      const jMatch = line.match(/J\s*(-?(?:\d*\.\d+|\d+))/i);
       
       // Extract H functions
       const hMatch = line.match(/H\s*(\d+)/i);
@@ -482,7 +482,7 @@ NCConverter.Visualization = {
         currentPath.hFunction = currentH;
       }
       
-      // Handle arc commands (G02/G03)
+      // Handle arc commands (G02/G03) - require either I or J parameter
       if ((g02Match || g03Match) && (xMatch || yMatch) && (iMatch || jMatch)) {
         const isClockwise = !!g02Match;
         
@@ -650,6 +650,21 @@ NCConverter.Visualization = {
     
     // Calculate radius from start point to center
     const radius = Math.sqrt(iOffset * iOffset + jOffset * jOffset);
+    
+    // Validate radius - if too small, treat as a line
+    if (radius < 0.001) {
+      NCConverter.debugLog(`⚠️ Arc radius too small (${radius}), treating as line`);
+      return [{ x: endX, y: endY }];
+    }
+    
+    // Validate that both start and end points are approximately the same distance from center
+    const startRadius = Math.sqrt((startX - centerX) * (startX - centerX) + (startY - centerY) * (startY - centerY));
+    const endRadius = Math.sqrt((endX - centerX) * (endX - centerX) + (endY - centerY) * (endY - centerY));
+    
+    if (Math.abs(startRadius - endRadius) > 0.1) {
+      NCConverter.debugLog(`⚠️ Arc radii mismatch: start=${startRadius.toFixed(3)}, end=${endRadius.toFixed(3)}, treating as line`);
+      return [{ x: endX, y: endY }];
+    }
     
     // Calculate start and end angles
     const startAngle = Math.atan2(startY - centerY, startX - centerX);
