@@ -118,7 +118,64 @@ NCConverter.Visualization = {
     
     // If there's already file content, parse and display it
     if (NCConverter.state && NCConverter.state.fileContent) {
-      this.parseAndDisplayFile();
+      // Step Loader integration
+      const stepControls = document.getElementById('stepLoaderControls');
+      if (stepControls && window.StepLoader) {
+        const lines = NCConverter.state.fileContent.split(/\r?\n/);
+        if (Array.isArray(lines) && lines.length > 0) {
+          StepLoader.init(lines, function(visibleLines, currentLineIdx) {
+            NCConverter.Visualization.parseGCode(visibleLines.join('\n'));
+            // Update line info
+            var info = document.getElementById('stepLineInfo');
+            if (info) info.textContent = `Line ${currentLineIdx + 1} / ${lines.length}`;
+            // Show current DIN file line
+            var lineWindow = document.getElementById('stepCurrentLineWindow');
+            if (lineWindow) {
+              lineWindow.textContent = lines[currentLineIdx] ? lines[currentLineIdx] : '';
+            }
+          });
+          // Wire up controls
+          document.getElementById('stepBackBtn').onclick = () => StepLoader.stepBackward();
+          document.getElementById('stepForwardBtn').onclick = () => StepLoader.stepForward();
+          const speedInput = document.getElementById('stepPlaySpeed');
+          document.getElementById('stepPlayBtn').onclick = () => {
+            let speed = 250;
+            if (speedInput && !isNaN(parseInt(speedInput.value))) {
+              speed = Math.max(50, Math.min(2000, parseInt(speedInput.value)));
+            }
+            StepLoader.play(speed);
+          };
+          // Update play speed immediately if changed while playing
+          if (speedInput) {
+            const speedValue = document.getElementById('stepPlaySpeedValue');
+            // Map slider value (1-40) to ms interval (fast=25ms, slow=1000ms)
+            function getMappedSpeed(val) {
+              // Linear mapping: 1 (fast) → 10ms, 60 (slow) → 1500ms
+              val = parseInt(val);
+              return Math.round(10 + ((60 - val) * (1490 / 59)));
+            }
+            speedInput.addEventListener('input', function() {
+              let speed = getMappedSpeed(speedInput.value);
+              if (speedValue) speedValue.textContent = speed + ' ms';
+              if (StepLoader.state.playing) {
+                StepLoader.pause();
+                StepLoader.play(speed);
+              }
+            });
+            // Show initial value
+            if (speedValue) speedValue.textContent = getMappedSpeed(speedInput.value) + ' ms';
+          }
+          document.getElementById('stepPauseBtn').onclick = () => StepLoader.pause();
+          document.getElementById('stepResetBtn').onclick = () => StepLoader.reset();
+          // Force initial visualization to only first line
+          StepLoader.state.currentLine = 0;
+          StepLoader.update();
+        } else {
+          this.parseAndDisplayFile();
+        }
+      } else {
+        this.parseAndDisplayFile();
+      }
     } else if (NCConverter.state && NCConverter.state.convertedContent) {
       // Try with converted content if available
       const contentToUse = NCConverter.state.convertedContent;
@@ -136,59 +193,51 @@ NCConverter.Visualization = {
   setupControls: function() {
     const { canvas } = this.elements;
     if (!canvas) return;
-    
+
+    // Do NOT remove static controls; just add zoom/fit buttons if needed
     const visualizationContainer = document.querySelector('.visualization-canvas-wrapper');
     if (!visualizationContainer) return;
-    
-    // First, clear any existing controls to avoid duplicates
-    const existingControls = visualizationContainer.querySelector('.visualization-controls');
-    if (existingControls) {
-      existingControls.remove();
-    }
-    
-    // Create new controls container
-    const controlsContainer = document.createElement('div');
-    controlsContainer.className = 'visualization-controls';
-    controlsContainer.style.position = 'absolute';
-    controlsContainer.style.bottom = 'var(--space-2)';
-    controlsContainer.style.right = 'var(--space-2)';
-    controlsContainer.style.display = 'flex';
-    controlsContainer.style.gap = 'var(--space-2)';
-    controlsContainer.style.zIndex = '100';
-    
+
+    // Find the static controls container
+    const controlsContainer = document.getElementById('visualizationControls');
+    if (!controlsContainer) return;
+
     // Add zoom in button
-    const zoomInBtn = document.createElement('button');
-    zoomInBtn.className = 'btn-sm';
-    zoomInBtn.title = 'Zoom In';
-    zoomInBtn.textContent = '+';
-    zoomInBtn.onclick = () => this.zoom(1.2);
-    
+    if (!document.getElementById('zoomInBtn')) {
+      const zoomInBtn = document.createElement('button');
+      zoomInBtn.id = 'zoomInBtn';
+      zoomInBtn.className = 'btn-sm';
+      zoomInBtn.title = 'Zoom In';
+      zoomInBtn.textContent = '+';
+      zoomInBtn.onclick = () => this.zoom(1.2);
+      controlsContainer.appendChild(zoomInBtn);
+      this.elements.zoomInBtn = zoomInBtn;
+    }
+
     // Add zoom out button
-    const zoomOutBtn = document.createElement('button');
-    zoomOutBtn.className = 'btn-sm';
-    zoomOutBtn.title = 'Zoom Out';
-    zoomOutBtn.textContent = '−';
-    zoomOutBtn.onclick = () => this.zoom(0.8);
-    
+    if (!document.getElementById('zoomOutBtn')) {
+      const zoomOutBtn = document.createElement('button');
+      zoomOutBtn.id = 'zoomOutBtn';
+      zoomOutBtn.className = 'btn-sm';
+      zoomOutBtn.title = 'Zoom Out';
+      zoomOutBtn.textContent = '−';
+      zoomOutBtn.onclick = () => this.zoom(0.8);
+      controlsContainer.appendChild(zoomOutBtn);
+      this.elements.zoomOutBtn = zoomOutBtn;
+    }
+
     // Add fit view button
-    const fitBtn = document.createElement('button');
-    fitBtn.className = 'btn-sm';
-    fitBtn.title = 'Fit View';
-    fitBtn.textContent = '↔';
-    fitBtn.onclick = () => this.fitToView();
-    
-    // Add buttons to controls
-    controlsContainer.appendChild(zoomInBtn);
-    controlsContainer.appendChild(zoomOutBtn);
-    controlsContainer.appendChild(fitBtn);
-    
-    // Add controls to container
-    visualizationContainer.appendChild(controlsContainer);
-    
-    // Update element references
-    this.elements.zoomInBtn = zoomInBtn;
-    this.elements.zoomOutBtn = zoomOutBtn;
-    this.elements.fitBtn = fitBtn;
+    if (!document.getElementById('fitBtn')) {
+      const fitBtn = document.createElement('button');
+      fitBtn.id = 'fitBtn';
+      fitBtn.className = 'btn-sm';
+      fitBtn.title = 'Fit View';
+      fitBtn.textContent = '↔';
+      fitBtn.onclick = () => this.fitToView();
+      controlsContainer.appendChild(fitBtn);
+      this.elements.fitBtn = fitBtn;
+    }
+    // Step loader controls are already present in static HTML
   },
   
   /**
@@ -421,15 +470,9 @@ NCConverter.Visualization = {
     lines.forEach(line => {
       // Skip comments and empty lines
       if (line.trim().startsWith('(') || line.trim().startsWith(';') || line.trim() === '') {
-        return;
+        return; // Skip comments and empty lines
       }
-      
-      // Check for G codes that change interpretation mode
-      if (/G\s*90\b/i.test(line)) isAbsolute = true;
-      if (/G\s*91\b/i.test(line)) isAbsolute = false;
-      if (/G\s*20\b/i.test(line)) isMetric = false; // Inches
-      if (/G\s*21\b/i.test(line)) isMetric = true;  // Millimeters
-      
+
       // Check for M codes that control drawing state
       if (/M\s*14\b/i.test(line)) {
         drawingActive = true; // M14 = Start drawing
@@ -546,6 +589,9 @@ NCConverter.Visualization = {
           });
           
           NCConverter.debugLog(`➕ Arc with ${arcPoints.length} points added to path`);
+          NCConverter.debugLog(`✅ Visualized arc: ${line.trim()}`);
+        } else {
+          NCConverter.debugLog(`❌ Skipped arc (drawing OFF): ${line.trim()}`);
         }
         
         // Update current position to end position
@@ -595,8 +641,8 @@ NCConverter.Visualization = {
         // Update bounds for auto-fit
         this.updateBounds(scaledX, scaledY);
       }
-    });
-    
+    }); // End of lines.forEach
+
     // Add the last path if it has points
     if (currentPath.points.length > 1) {
       this.state.paths.push(currentPath);
@@ -644,82 +690,41 @@ NCConverter.Visualization = {
    * @return {Array} Array of {x, y} points along the arc
    */
   generateArcPoints: function(startX, startY, endX, endY, iOffset, jOffset, isClockwise) {
-    // Calculate arc center coordinates
     const centerX = startX + iOffset;
     const centerY = startY + jOffset;
-    
-    // Calculate radius from start point to center
     const radius = Math.sqrt(iOffset * iOffset + jOffset * jOffset);
-    
-    // Validate radius - if too small, treat as a line
     if (radius < 0.001) {
       NCConverter.debugLog(`⚠️ Arc radius too small (${radius}), treating as line`);
       return [{ x: endX, y: endY }];
     }
-    
-    // Validate that both start and end points are approximately the same distance from center
-    const startRadius = Math.sqrt((startX - centerX) * (startX - centerX) + (startY - centerY) * (startY - centerY));
-    const endRadius = Math.sqrt((endX - centerX) * (endX - centerX) + (endY - centerY) * (endY - centerY));
-    
+    const startRadius = Math.sqrt((startX - centerX) ** 2 + (startY - centerY) ** 2);
+    const endRadius = Math.sqrt((endX - centerX) ** 2 + (endY - centerY) ** 2);
     if (Math.abs(startRadius - endRadius) > 0.1) {
       NCConverter.debugLog(`⚠️ Arc radii mismatch: start=${startRadius.toFixed(3)}, end=${endRadius.toFixed(3)}, treating as line`);
       return [{ x: endX, y: endY }];
     }
-    
-    // Calculate start and end angles
     const startAngle = Math.atan2(startY - centerY, startX - centerX);
     const endAngle = Math.atan2(endY - centerY, endX - centerX);
-    
-    // Normalize angles to [0, 2π]
-    let normalizedStartAngle = startAngle < 0 ? startAngle + 2 * Math.PI : startAngle;
-    let normalizedEndAngle = endAngle < 0 ? endAngle + 2 * Math.PI : endAngle;
-    
-    // Calculate angular sweep
-    let angleSweep;
-    if (isClockwise) {
-      // For clockwise arcs (G02)
-      if (normalizedEndAngle > normalizedStartAngle) {
-        angleSweep = normalizedEndAngle - normalizedStartAngle - 2 * Math.PI;
-      } else {
-        angleSweep = normalizedEndAngle - normalizedStartAngle;
-      }
-    } else {
-      // For counterclockwise arcs (G03)
-      if (normalizedEndAngle < normalizedStartAngle) {
-        angleSweep = normalizedEndAngle - normalizedStartAngle + 2 * Math.PI;
-      } else {
-        angleSweep = normalizedEndAngle - normalizedStartAngle;
-      }
+    let sweep = endAngle - startAngle;
+    if (isClockwise && sweep > 0) sweep -= 2 * Math.PI;
+    if (!isClockwise && sweep < 0) sweep += 2 * Math.PI;
+    // Full circle if start/end are the same
+    if (Math.abs(sweep) < 1e-6 && Math.abs(startX - endX) < 1e-6 && Math.abs(startY - endY) < 1e-6) {
+      sweep = isClockwise ? -2 * Math.PI : 2 * Math.PI;
     }
-    
-    // Calculate number of segments based on arc length for smooth curves
-    const arcLength = Math.abs(angleSweep * radius);
-    const segmentLength = 1.0; // mm per segment for smooth curves
-    const numSegments = Math.max(4, Math.ceil(arcLength / segmentLength));
-    
-    NCConverter.debugLog(`🌀 Arc: center(${centerX.toFixed(2)}, ${centerY.toFixed(2)}) radius=${radius.toFixed(2)} sweep=${(angleSweep * 180 / Math.PI).toFixed(1)}° segments=${numSegments}`);
-    
-    // Generate points along the arc
+    // Use angle-based segment count: 1 segment per 2 degrees, min 24
+    const segments = Math.max(24, Math.ceil(Math.abs(sweep) / (Math.PI / 90)));
     const points = [];
-    
-    for (let i = 0; i <= numSegments; i++) {
-      const t = i / numSegments;
-      const currentAngle = normalizedStartAngle + angleSweep * t;
-      
-      const x = centerX + radius * Math.cos(currentAngle);
-      const y = centerY + radius * Math.sin(currentAngle);
-      
-      // Skip the first point since it's the same as current position
-      if (i > 0) {
-        points.push({ x: x, y: y });
-      }
+    for (let i = 1; i <= segments; i++) {
+      const t = i / segments;
+      const angle = startAngle + sweep * t;
+      points.push({
+        x: centerX + radius * Math.cos(angle),
+        y: centerY + radius * Math.sin(angle)
+      });
     }
-    
-    // Ensure the end point is exactly where it should be
-    if (points.length > 0) {
-      points[points.length - 1] = { x: endX, y: endY };
-    }
-    
+    // Always include the end point exactly
+    points[points.length - 1] = { x: endX, y: endY };
     return points;
   },
   
@@ -758,7 +763,6 @@ NCConverter.Visualization = {
     // Center the view
     this.state.panX = (canvas.width - (bounds.maxX - bounds.minX) * this.state.scale) / 2 - bounds.minX * this.state.scale;
     this.state.panY = (canvas.height - (bounds.maxY - bounds.minY) * this.state.scale) / 2 - bounds.minY * this.state.scale;
-    
     this.redraw();
   },
   

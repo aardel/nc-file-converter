@@ -183,14 +183,26 @@
   <p>2D visualization of the NC toolpath. Use the mouse wheel to zoom, and drag to pan.</p>
   
   <div class="visualization-container" style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3);">
-    <div class="visualization-canvas-wrapper" style="flex: 1; min-width: 300px; background-color: var(--gray-100); border-radius: var(--border-radius); box-shadow: var(--shadow); overflow: hidden; position: relative; height: 400px;">
-      <canvas id="visualizationCanvas" width="600" height="400" tabindex="0" 
-              style="width: 100%; height: 100%; display: block; touch-action: none;"
-              aria-label="NC toolpath visualization canvas">
-        Your browser does not support the canvas element.
-      </canvas>
-      
-      <!-- Controls will be created dynamically by JavaScript -->
+  <div class="visualization-canvas-wrapper" style="flex: 1 1 0; min-width: 900px; max-width: 98vw; background-color: var(--gray-100); border-radius: var(--border-radius); box-shadow: var(--shadow); overflow: hidden; position: relative; height: 700px; max-height: 80vh; margin: 0 auto;">
+  <canvas id="visualizationCanvas" width="1200" height="700" tabindex="0" 
+      style="width: 100%; height: 100%; min-height: 700px; display: block; touch-action: none;"
+      aria-label="NC toolpath visualization canvas">
+    Your browser does not support the canvas element.
+  </canvas>
+        <div id="stepLoaderBar" style="width:100%;position:absolute;left:0;bottom:0;z-index:300;display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0;background:rgba(15,23,42,0.98);box-shadow:0 -2px 12px rgba(0,0,0,0.12);">
+          <div id="stepLoaderControls" style="display:flex;align-items:center;gap:10px;">
+            <button id="stepBackBtn">⏪ Prev</button>
+            <button id="stepPlayBtn">▶️ Play</button>
+            <button id="stepPauseBtn">⏸️ Pause</button>
+            <button id="stepForwardBtn">⏩ Next</button>
+            <button id="stepResetBtn">🔄 Reset</button>
+            <label for="stepPlaySpeed" style="margin-left:8px;color:#e2e8f0;font-size:14px;">Speed (Slow → Fast):</label>
+            <input type="range" id="stepPlaySpeed" min="1" max="60" value="30" step="1" style="width:200px;vertical-align:middle;">
+            <span id="stepPlaySpeedValue" style="margin-left:8px;color:#e2e8f0;font-size:15px;font-family:monospace;">30</span>
+            <span id="stepLineInfo" style="margin-left:10px;"></span>
+          </div>
+          <div id="stepCurrentLineWindow" style="width:90vw;max-width:900px;max-height:48px;overflow:auto;background:rgba(30,41,59,0.95);border-radius:6px;padding:6px 10px;color:#e2e8f0;font-size:15px;font-family:monospace;text-align:left;"></div>
+        </div>
     </div>
   </div>
 </div>
@@ -268,6 +280,7 @@
 
   <!-- JavaScript files -->
   <script src="js/constants.js"></script>
+  <script src="js/step-loader.js"></script>
   <script>
     // Display the app version from JS constant (after DOM and constants are loaded)
     document.addEventListener('DOMContentLoaded', function() {
